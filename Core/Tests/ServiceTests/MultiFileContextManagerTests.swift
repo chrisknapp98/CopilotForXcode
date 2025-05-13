@@ -17,12 +17,20 @@ class MultiFileContextManagerTests: XCTestCase {
         
         XCTAssertNotEqual(files.count, 0)
     }
+    
+    func testRetrievingFileContent() async {
+        let sut = sut
+        let files = await sut.readFileContents()
+        
+        XCTAssertNotEqual(files.count, 0)
+    }
 }
 
 
 class WorkspaceProviderMock: WorkspaceProvider {
     func workspace() async throws -> Workspace? {
-        let workspaceURL = URL(fileURLWithPath: "/Users/christopherknapp/repos/CopilotForXcode-Fork/Copilot for Xcode.xcworkspace")
+//        let workspaceURL = URL(fileURLWithPath: "/Users/christopherknapp/repos/CopilotForXcode-Fork/Copilot for Xcode.xcworkspace")
+        let workspaceURL = URL(fileURLWithPath: "/Users/christopherknapp/repos/clean-architecture-swiftui-fork")
         return Workspace(workspaceURL: workspaceURL)
     }
 }

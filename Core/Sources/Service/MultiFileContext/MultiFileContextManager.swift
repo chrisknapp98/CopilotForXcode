@@ -27,4 +27,23 @@ class MultiFileContextManager {
         }
         return files
     }
+    
+    func readFileContents() async -> [FileContent] {
+        let fileURLs = await listFilesInWorkspace()
+        return fileURLs.compactMap { fileURLString in
+            guard let fileURL = URL(string: fileURLString) else { return nil }
+            do {
+                let content = try String(contentsOf: fileURL, encoding: .utf8)
+                return FileContent(fileURL: fileURLString, content: content)
+            } catch {
+                print("Failed to read \(fileURL):", error)
+                return nil
+            }
+        }
+    }
+}
+
+struct FileContent {
+    let fileURL: String
+    let content: String
 }
