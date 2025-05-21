@@ -24,13 +24,22 @@ class MultiFileContextManagerTests: XCTestCase {
         
         XCTAssertNotEqual(files.count, 0)
     }
+    
+    func testClassifyingCode() async {
+        let sut = sut
+        let classifiedFiles = await sut.classifyContentWithinFile()
+        // symbols
+        XCTAssertNotEqual(classifiedFiles.count, 0)
+    }
 }
 
 
 class WorkspaceProviderMock: WorkspaceProvider {
     func workspace() async throws -> Workspace? {
 //        let workspaceURL = URL(fileURLWithPath: "/Users/christopherknapp/repos/CopilotForXcode-Fork/Copilot for Xcode.xcworkspace")
-        let workspaceURL = URL(fileURLWithPath: "/Users/christopherknapp/repos/clean-architecture-swiftui-fork")
+//        let workspaceURL = URL(fileURLWithPath: "/Users/christopherknapp/repos/clean-architecture-swiftui-fork")
+//        let workspaceURL = URL(fileURLWithPath: "/Users/christopherknapp/repos/ios-minttv")
+        let workspaceURL = URL(fileURLWithPath: "/Users/christopherknapp/repos/ios-minttv/Pod/Classes/Twitch/TwitchEndpoint.swift")
         return Workspace(workspaceURL: workspaceURL)
     }
 }
