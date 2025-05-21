@@ -20,7 +20,7 @@ class MultiFileContextManager {
         guard let workspace: Workspace = try? await workspaceProvider.workspace()
         else { return [] }
         var files = [String]()
-        if let enumerator = FileManager.default.enumerator(at: workspace.projectRootURL, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles, .skipsPackageDescendants]) {
+        if let enumerator = FileManager.default.enumerator(at: workspace.workspaceURL, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles, .skipsPackageDescendants]) {
             for case let fileURL as URL in enumerator {
                 do {
                     let fileAttributes = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
