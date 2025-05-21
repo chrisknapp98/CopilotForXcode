@@ -52,19 +52,43 @@ class MultiFileContextManager {
         var result: [String: SymbolContent] = [:]
 
         for file in fileContents {
-            guard let fileURL = URL(string: file.fileURL) else { continue }
-            do {
-                let sourceFile = Parser.parse(source: file.content)
-                let converter = SourceLocationConverter(fileName: file.fileURL, tree: sourceFile)
-                let collector = DeclarationCollector(sourceLocationConverter: converter, sourceText: file.content)
-                collector.walk(sourceFile)
-                result[file.fileName] = file.mapToSymbolContent(symbols: collector.symbols)
-            } catch {
-                print("SwiftSyntax parse failed for \(file.fileURL):", error)
+            let sourceFile = Parser.parse(source: file.content)
+            let converter = SourceLocationConverter(fileName: file.fileURL, tree: sourceFile)
+            let collector = DeclarationCollector(sourceLocationConverter: converter, sourceText: file.content)
+            collector.walk(sourceFile)
+            var symbols: [SymbolContent] = collector.symbols.map { symbol in
+                SymbolContent(fileURL: file.fileURL, content: file.content, symbol: symbol)
+            }
+            mergeExtensionsIntoBaseDeclarations(&symbols)
+            for symbol in symbols {
+                result[symbol.symbol.name] = symbol
             }
         }
 
         return result
+    }
+    
+    private func mergeExtensionsIntoBaseDeclarations(_ symbols: inout [SymbolContent]) {
+        var indexesToRemove: [Int] = []
+
+        for (index, symbol) in symbols.enumerated() {
+            guard symbol.symbol.kind == .extensionWord else { continue }
+
+            if let targetIndex = symbols.firstIndex(where: {
+                $0.symbol.name == symbol.symbol.name &&
+                $0.symbol.kind != .extensionWord
+            }) {
+                var target = symbols[targetIndex]
+                target.symbol.extensions.append(symbol)
+                symbols[targetIndex] = target
+
+                indexesToRemove.append(index)
+            }
+        }
+
+        for index in indexesToRemove.sorted(by: >) {
+            symbols.remove(at: index)
+        }
     }
     
 }
@@ -80,16 +104,10 @@ struct FileContent {
     }
 }
 
-extension FileContent {
-    func mapToSymbolContent(symbols: [SymbolInfo]) -> SymbolContent {
-        SymbolContent(fileURL: fileURL, content: content, symbols: symbols)
-    }
-}
-
 struct SymbolContent {
     let fileURL: String
     let content: String
-    let symbols: [SymbolInfo]
+    var symbol: SymbolInfo
 }
 
 enum ClassificationKeywords: String {
@@ -107,10 +125,11 @@ enum ClassificationKeywords: String {
 
 struct SymbolInfo {
     let name: String
-    let kind: String
+    let kind: ClassificationKeywords
     let startLine: Int
     let endLine: Int
     let content: String
+    var extensions: [SymbolContent] = []
 }
 
 import SwiftSyntax
@@ -133,58 +152,57 @@ class DeclarationCollector: SyntaxVisitor {
 //    }
 
     override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind {
-        recordSymbol(name: node.name.text, kind: ClassificationKeywords.classWord.rawValue, node: node)
+        recordSymbol(name: node.name.text, kind: ClassificationKeywords.classWord, node: node)
         return .skipChildren
     }
 
     override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
-        recordSymbol(name: node.name.text, kind: ClassificationKeywords.structWord.rawValue, node: node)
+        recordSymbol(name: node.name.text, kind: ClassificationKeywords.structWord, node: node)
         return .skipChildren
     }
 
     override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
-        recordSymbol(name: node.name.text, kind: ClassificationKeywords.enumWord.rawValue, node: node)
+        recordSymbol(name: node.name.text, kind: ClassificationKeywords.enumWord, node: node)
         return .skipChildren
     }
 
     override func visit(_ node: ProtocolDeclSyntax) -> SyntaxVisitorContinueKind {
-        recordSymbol(name: node.name.text, kind: ClassificationKeywords.protocolWord.rawValue, node: node)
+        recordSymbol(name: node.name.text, kind: ClassificationKeywords.protocolWord, node: node)
         return .skipChildren
     }
     
     override func visit(_ node: ActorDeclSyntax) -> SyntaxVisitorContinueKind {
-        recordSymbol(name: node.name.text, kind: ClassificationKeywords.actorWord.rawValue, node: node)
+        recordSymbol(name: node.name.text, kind: ClassificationKeywords.actorWord, node: node)
         return .skipChildren
     }
 
     override func visit(_ node: FunctionDeclSyntax) -> SyntaxVisitorContinueKind {
-        recordSymbol(name: node.name.text, kind: ClassificationKeywords.funcWord.rawValue, node: node)
+        recordSymbol(name: node.name.text, kind: ClassificationKeywords.funcWord, node: node)
         return .skipChildren
     }
 
     override func visit(_ node: VariableDeclSyntax) -> SyntaxVisitorContinueKind {
         guard let binding = node.bindings.first,
-              let pattern = binding.pattern.as(IdentifierPatternSyntax.self) else {
+              let pattern = binding.pattern.as(IdentifierPatternSyntax.self),
+              let keyword: ClassificationKeywords = ClassificationKeywords(rawValue: node.bindingSpecifier.text) else {
             return .skipChildren
         }
-
-        let keyword = node.bindingSpecifier.text  // "let" or "var"
         recordSymbol(name: pattern.identifier.text, kind: keyword, node: node)
         return .skipChildren
     }
 
     override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
         let name = node.extendedType.trimmedDescription
-        recordSymbol(name: name, kind: ClassificationKeywords.extensionWord.rawValue, node: node)
+        recordSymbol(name: name, kind: ClassificationKeywords.extensionWord, node: node)
         return .skipChildren
     }
     
     override func visit(_ node: TypeAliasDeclSyntax) -> SyntaxVisitorContinueKind {
-        recordSymbol(name: node.name.text, kind: ClassificationKeywords.typealiasWord.rawValue, node: node)
+        recordSymbol(name: node.name.text, kind: ClassificationKeywords.typealiasWord, node: node)
         return .skipChildren
     }
 
-    private func recordSymbol(name: String, kind: String, node: SyntaxProtocol) {
+    private func recordSymbol(name: String, kind: ClassificationKeywords, node: SyntaxProtocol) {
         let startLoc = sourceLocationConverter.location(for: node.positionAfterSkippingLeadingTrivia)
         let endLoc = sourceLocationConverter.location(for: node.endPositionBeforeTrailingTrivia)
         let startLineIndex = startLoc.line - 1
