@@ -156,6 +156,7 @@ public class ConversationTab: ChatTab {
         self.isRestored = true
     }
 
+    @MainActor
     public func start() {
         observer = .init()
         cancellable = []
