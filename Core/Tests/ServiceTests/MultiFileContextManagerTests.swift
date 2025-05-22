@@ -7,7 +7,8 @@ class MultiFileContextManagerTests: XCTestCase {
     
     var sut: MultiFileContextManager {
         MultiFileContextManager(
-            workspaceProvider: WorkspaceProviderMock()
+            workspaceProvider: WorkspaceProviderMock(),
+            parser: SwiftProgrammingLanguageSyntaxParser()
         )
     }
     
