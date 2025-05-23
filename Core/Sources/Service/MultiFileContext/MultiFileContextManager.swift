@@ -20,7 +20,7 @@ class MultiFileContextManager {
             for case let fileURL as URL in enumerator {
                 do {
                     let fileAttributes = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
-                    if fileAttributes.isRegularFile! {
+                    if fileAttributes.isRegularFile ?? false, fileURL.pathExtension.lowercased() == "swift" {
                         files.append(fileURL.absoluteString)
                     }
                 } catch { print(error, fileURL) }
