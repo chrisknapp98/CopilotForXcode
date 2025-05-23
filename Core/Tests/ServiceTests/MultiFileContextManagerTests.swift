@@ -37,22 +37,22 @@ class MultiFileContextManagerTests: XCTestCase {
 
 class WorkspaceProviderMock: WorkspaceProvider {
     func workspace() async throws -> Workspace? {
-//        let workspaceURL = URL(fileURLWithPath: "/Users/christopherknapp/repos/CopilotForXcode-Fork/Copilot for Xcode.xcworkspace")
-//        let workspaceURL = URL(fileURLWithPath: "/Users/christopherknapp/repos/clean-architecture-swiftui-fork")
-//        let workspaceURL = URL(fileURLWithPath: "/Users/christopherknapp/repos/ios-minttv")
-//        let workspaceURL = URL(fileURLWithPath: "/Users/christopherknapp/repos/ios-minttv/Pod/Classes/Twitch/TwitchEndpoint.swift")
-//        let workspaceURL = URL(fileURLWithPath: "/Users/christopherknapp/repos/ios-minttv/Pod/Classes/Twitch/Chat/IRC")
-        let workspaceURL = URL(fileURLWithPath: "/Users/christopherknapp/repos/ios-minttv/Pod/Classes/Twitch/Chat/Presentation/View")
+//        let workspaceURL = URL(filePath: "/Users/christopherknapp/repos/CopilotForXcode-Fork/Copilot for Xcode.xcworkspace")
+//        let workspaceURL = URL(filePath: "/Users/christopherknapp/repos/clean-architecture-swiftui-fork")
+//        let workspaceURL = URL(filePath: "/Users/christopherknapp/repos/ios-minttv")
+//        let workspaceURL = URL(filePath: "/Users/christopherknapp/repos/ios-minttv/Pod/Classes/Twitch/TwitchEndpoint.swift")
+//        let workspaceURL = URL(filePath: "/Users/christopherknapp/repos/ios-minttv/Pod/Classes/Twitch/Chat/IRC")
+        let workspaceURL = URL(filePath: "/Users/christopherknapp/repos/ios-minttv/Pod/Classes/Twitch/Chat/Presentation/View")
         return Workspace(workspaceURL: workspaceURL)
     }
     
     func getProjectRootURL() async throws -> URL {
-        URL(fileURLWithPath: "/Users/christopherknapp/repos/ios-minttv/Pod/Classes/Twitch/Chat/Presentation/View")
+        URL(filePath: "/Users/christopherknapp/repos/ios-minttv/Pod/Classes/Twitch/Chat/Presentation/View")
     }
 }
 
 //private func mockFilespace() -> Filespace {
-//    let fileURL = URL(fileURLWithPath: "/Users/christopherknapp/repos/CopilotForXcode-Fork/Core/Sources/Service/SuggestionCommandHandler/PseudoCommandHandler.swift")
+//    let fileURL = URL(filePath: "/Users/christopherknapp/repos/CopilotForXcode-Fork/Core/Sources/Service/SuggestionCommandHandler/PseudoCommandHandler.swift")
 //    return Filespace(fileURL: fileURL) { filespace in
 //        return
 //    } onClose: { url in
