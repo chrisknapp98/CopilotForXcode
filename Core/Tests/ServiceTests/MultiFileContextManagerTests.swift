@@ -45,6 +45,10 @@ class WorkspaceProviderMock: WorkspaceProvider {
         let workspaceURL = URL(fileURLWithPath: "/Users/christopherknapp/repos/ios-minttv/Pod/Classes/Twitch/Chat/Presentation/View")
         return Workspace(workspaceURL: workspaceURL)
     }
+    
+    func getProjectRootURL() async throws -> URL {
+        URL(fileURLWithPath: "/Users/christopherknapp/repos/ios-minttv/Pod/Classes/Twitch/Chat/Presentation/View")
+    }
 }
 
 //private func mockFilespace() -> Filespace {

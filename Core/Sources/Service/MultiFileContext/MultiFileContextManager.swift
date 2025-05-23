@@ -1,5 +1,4 @@
 import Foundation
-import Workspace
 
 class MultiFileContextManager {
     private let workspaceProvider: WorkspaceProvider
@@ -13,10 +12,14 @@ class MultiFileContextManager {
     /// List files within workspace recursively
     /// Retrieved from: https://stackoverflow.com/a/57640445
     func listFilesInWorkspace() async -> [String] {
-        guard let workspace: Workspace = try? await workspaceProvider.workspace()
+        guard let workspaceURL = try? await workspaceProvider.getProjectRootURL()
         else { return [] }
         var files = [String]()
-        if let enumerator = FileManager.default.enumerator(at: workspace.workspaceURL, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles, .skipsPackageDescendants]) {
+        if let enumerator = FileManager.default.enumerator(
+            at: workspaceURL,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) {
             for case let fileURL as URL in enumerator {
                 do {
                     let fileAttributes = try fileURL.resourceValues(forKeys: [.isRegularFileKey])

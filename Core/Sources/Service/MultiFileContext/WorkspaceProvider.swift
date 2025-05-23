@@ -4,6 +4,7 @@ import XcodeInspector
 
 protocol WorkspaceProvider {
     func workspace() async throws -> Workspace?
+    func getProjectRootURL() async throws -> URL
 }
 
 class XcodeInspectorWorkspaceProvider: WorkspaceProvider {
@@ -27,4 +28,13 @@ class XcodeInspectorWorkspaceProvider: WorkspaceProvider {
         let tuple: (workspace: Workspace, _: Filespace)? = try await workspacePool.fetchOrCreateWorkspaceAndFilespace(fileURL: filespace.fileURL)
         return tuple?.workspace
     }
+    
+    func getProjectRootURL() async throws -> URL {
+        guard let workspace = try await workspace() else { throw WorkspaceError.errorGettingWorkspace }
+        return workspace.projectRootURL
+    }
+}
+
+enum WorkspaceError: Error {
+    case errorGettingWorkspace
 }
