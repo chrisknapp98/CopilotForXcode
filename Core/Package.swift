@@ -53,8 +53,8 @@ let package = Package(
             .package(url: "https://github.com/devm33/KeyboardShortcuts", branch: "main"),
         .package(url: "https://github.com/devm33/CGEventOverride", branch: "devm33/fix-stale-AXIsProcessTrusted"),
         .package(url: "https://github.com/devm33/Highlightr", branch: "master"),
-        .package(url: "https://github.com/globulus/swiftui-flow-layout",
-                 from: "1.0.5")
+        .package(url: "https://github.com/globulus/swiftui-flow-layout", from: "1.0.5"),
+        .package(url: "https://github.com/apple/swift-syntax", exact: "510.0.2"),
     ],
     targets: [
         // MARK: - Main
@@ -98,6 +98,8 @@ let package = Package(
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
                 .product(name: "Dependencies", package: "swift-dependencies"),
                 .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
             ]),
         .testTarget(
             name: "ServiceTests",
