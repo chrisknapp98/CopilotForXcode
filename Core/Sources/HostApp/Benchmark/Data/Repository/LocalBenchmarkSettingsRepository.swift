@@ -1,11 +1,16 @@
+import Foundation
 import Combine
 
 class LocalBenchmarkSettingsRepository: BenchmarkSettingsRepository {
     private let localStorageManager: LocalStorageManager
     private let benchmarkDirectoriesKey = "benchmarkDirectories"
     private let benchmarkOutputDirectoryKey = "benchmarkOutputDirectory"
-    private let defaultOutputDirectory = "~/Desktop/benchmark_output"
     
+    private var defaultOutputDirectory: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Desktop/benchmark_output")
+    }
+
     private let currentBenchmarkDirectories: CurrentValueSubject<[BenchmarkDirectory], Never> = CurrentValueSubject([])
     var benchmarkDirectories: AnyPublisher<[BenchmarkDirectory], Never> {
         currentBenchmarkDirectories.eraseToAnyPublisher()
@@ -56,12 +61,11 @@ class LocalBenchmarkSettingsRepository: BenchmarkSettingsRepository {
         do {
             return try localStorageManager.load(key: benchmarkOutputDirectoryKey)
         } catch LocalStorageError.noDataForKey {
-            try saveBenchmarkOutputDirectory(defaultOutputDirectory)
-            return defaultOutputDirectory
+            let defaultPath = defaultOutputDirectory.path
+            try saveBenchmarkOutputDirectory(defaultPath)
+            return defaultPath
         }
-            
     }
-    
 }
 
 extension Array where Element == BenchmarkDirectory {
