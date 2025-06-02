@@ -4,7 +4,7 @@ class LocalBenchmarkSettingsRepository: BenchmarkSettingsRepository {
     private let localStorageManager: LocalStorageManager
     private let benchmarkDirectoriesKey = "benchmarkDirectories"
     private let benchmarkOutputDirectoryKey = "benchmarkOutputDirectory"
-    private let defaultOutputDirectory = "~Desktop/benchmark_output"
+    private let defaultOutputDirectory = "~/Desktop/benchmark_output"
     
     private let currentBenchmarkDirectories: CurrentValueSubject<[BenchmarkDirectory], Never> = CurrentValueSubject([])
     var benchmarkDirectories: AnyPublisher<[BenchmarkDirectory], Never> {
