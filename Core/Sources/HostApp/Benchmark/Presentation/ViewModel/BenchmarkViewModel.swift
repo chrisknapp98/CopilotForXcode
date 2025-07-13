@@ -5,11 +5,13 @@ class BenchmarkViewModel: ObservableObject {
     @Published var benchmarkDirectories: [BenchmarkDirectory] = []
     
     private let benchmarkSettingsRepository: BenchmarkSettingsRepository
+    private let benchmarkManager: RealtimeSuggestionControllerBenchmarkManager
     private var cancellables = Set<AnyCancellable>()
     private var toast: ToastController { ToastControllerDependencyKey.liveValue }
     
     init(benchmarkSettingsRepository: BenchmarkSettingsRepository) {
         self.benchmarkSettingsRepository = benchmarkSettingsRepository
+        self.benchmarkManager = RealtimeSuggestionControllerBenchmarkManager(benchmarkSettingsRepository: benchmarkSettingsRepository)
     }
     
     func loadBenchmarkDirectories() {
@@ -18,9 +20,10 @@ class BenchmarkViewModel: ObservableObject {
             .store(in: &cancellables)
     }
     
-    func runBenchmark(for directory: BenchmarkDirectory) {
+    func runBenchmark(for directory: BenchmarkDirectory) async throws {
         // TODO: Implement the logic to run the benchmark for the given directory
         print("Running benchmark for \(directory.url.path)")
+        try await benchmarkManager.getCodeSuggestions(at: directory)
     }
     
     

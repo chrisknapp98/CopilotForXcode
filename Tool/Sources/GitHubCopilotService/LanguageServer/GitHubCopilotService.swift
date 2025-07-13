@@ -442,7 +442,7 @@ public final class GitHubCopilotService:
             do {
                 let completions = try await self
                     .sendRequest(GitHubCopilotRequest.InlineCompletion(doc: .init(
-                        textDocument: .init(uri: fileURL.absoluteString, version: 1),
+                        textDocument: .init(uri: fileURL.absoluteString, version: 0),
                         position: cursorPosition,
                         formattingOptions: .init(
                             tabSize: tabSize,

@@ -189,7 +189,7 @@ public final class Workspace {
     }
 
     @WorkspaceActor
-    func didOpenFilespace(_ filespace: Filespace) {
+    public func didOpenFilespace(_ filespace: Filespace) {
         refreshUpdateTime()
         openedFileRecoverableStorage.openFile(fileURL: filespace.fileURL)
         for plugin in plugins.values {

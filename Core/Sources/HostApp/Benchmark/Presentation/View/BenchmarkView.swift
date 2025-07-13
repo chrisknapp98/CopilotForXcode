@@ -25,7 +25,9 @@ struct BenchmarkView: View {
                             DirectoryNameView(directory: directory)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             Button {
-                                viewModel.runBenchmark(for: directory)
+                                Task {
+                                    try? await viewModel.runBenchmark(for: directory)                                    
+                                }
                             } label: {
                                 Image(systemName: "play")
                             }

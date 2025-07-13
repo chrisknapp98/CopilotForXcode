@@ -6,4 +6,5 @@ protocol BenchmarkSettingsRepository {
     func saveBenchmarkDirectory(_ directory: BenchmarkDirectory) throws
     func deleteBenchmarkDirectory(_ directory: BenchmarkDirectory) throws
     func saveBenchmarkOutputDirectory(_ directory: String) throws
+    var projectRootURL: String { get }
 }
