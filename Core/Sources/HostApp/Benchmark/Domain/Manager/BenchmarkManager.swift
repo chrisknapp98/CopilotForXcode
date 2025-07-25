@@ -22,17 +22,12 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
     private let benchmarkSettingsRepository: BenchmarkSettingsRepository
     @WorkspaceActor
     private let workspacePool: WorkspacePool
-    private let scheduledCleaner: ScheduledCleaner
     
     init(benchmarkSettingsRepository: BenchmarkSettingsRepository) {
         @Dependency(\.workspacePool) var workspacePool
-//        workspacePool.registerPlugin {
-//            SuggestionServiceWorkspacePlugin(workspace: $0) { SuggestionService.service() }
-//        }
         BuiltinExtensionManager.shared.setupExtensions([
             GitHubCopilotExtension(workspacePool: workspacePool)
         ])
-//        scheduledCleaner = .init()
         workspacePool.registerPlugin {
             SuggestionServiceWorkspacePlugin(workspace: $0) { SuggestionService.service() }
         }
@@ -44,7 +39,6 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
         }
         self.workspacePool = workspacePool
         self.benchmarkSettingsRepository = benchmarkSettingsRepository
-        self.scheduledCleaner = .init()
     }
     
     func getCodeSuggestions(at benchmarkDirectory: BenchmarkDirectory) async throws {
@@ -58,20 +52,11 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
     }
     
     func getCodeSuggestionFromService(at directory: URL, from benchmarkDirectory: URL) async -> SuggestionResponse? {
-        guard let metadata: MetadataDTO = readMetadata(at: directory) else { return nil }
+        guard let metadata: MetadataDTO = readMetadata(at: directory),
+              let xcodeWorkspaceFileURL = findXcodeWorkspace(in: benchmarkDirectory),
+              let workspace = try? await workspacePool.fetchOrCreateWorkspace(workspaceURL: xcodeWorkspaceFileURL)
+        else { return nil }
         let entrypoint = metadata.mapToEntrypoint(prefixing: benchmarkSettingsRepository.projectRootURL)
-        let tuple: (workspace: Workspace, filespace: Filespace)? = try? await workspacePool.fetchOrCreateWorkspaceAndFilespace(fileURL: entrypoint.fileURL)
-        guard let workspace = tuple?.workspace,
-//              let filespace = try? await workspace.createFilespaceIfNeeded(fileURL: entrypoint.fileURL)
-              let filespace = tuple?.filespace
-        else {
-            return nil
-        }
-//        workspace.
-        await filespace.reset()
-        await cleanUp()
-        await workspace.didOpenFilespace(filespace)
-//        await filespace.bumpVersion()
         let content: String = (try? String(contentsOf: entrypoint.fileURL, encoding: .utf8)) ?? ""
         let suggestionRequest = SuggestionProvider.SuggestionRequest(
             fileURL: entrypoint.fileURL,
@@ -86,12 +71,11 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
             usesTabsForIndentation: false,
             relevantCodeSnippets: []
         )
-        // TODO: use the broader one
-        let workspaceInfo = WorkspaceInfo(workspaceURL: benchmarkDirectory, projectURL: benchmarkDirectory)
+        let workspaceInfo = WorkspaceInfo(workspaceURL: xcodeWorkspaceFileURL, projectURL: benchmarkDirectory)
         do {
             // only works when setting document version GitHubCopilotService to 0
-//            let suggestions = try await workspace.suggestionService?.getSuggestions(suggestionRequest, workspaceInfo: workspaceInfo)
-            let suggestions: [SuggestionBasic.CodeSuggestion]? = [exampleSuggestion]
+            let suggestions = try await workspace.suggestionService?.getSuggestions(suggestionRequest, workspaceInfo: workspaceInfo)
+//            let suggestions: [SuggestionBasic.CodeSuggestion]? = [exampleSuggestion]
             await workspace.closeFilespace(fileURL: URL(fileURLWithPath: metadata.entrypoint.filename))
             guard let suggestions, let firstSuggestion = suggestions.first else { return nil }
             return .init(
@@ -151,38 +135,6 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
         }
     }
     
-    public func cleanUp() async {
-//        guard let service else { return }
-
-        let workspaceInfos = XcodeInspector.shared.xcodes.reduce(
-            into: [
-                XcodeAppInstanceInspector.WorkspaceIdentifier:
-                    XcodeAppInstanceInspector.WorkspaceInfo
-            ]()
-        ) { result, xcode in
-            let infos = xcode.realtimeWorkspaces
-            for (id, info) in infos {
-                if let existed = result[id] {
-                    result[id] = existed.combined(with: info)
-                } else {
-                    result[id] = info
-                }
-            }
-        }
-        for (url, workspace) in await workspacePool.workspaces {
-            if workspace.isExpired, workspaceInfos[.url(url)] == nil {
-//                Logger.service.info("Remove idle workspace")
-                await workspace.cleanUp(availableTabs: [])
-                await workspacePool.removeWorkspace(url: url)
-            } else {
-                let tabs = (workspaceInfos[.url(url)]?.tabs ?? [])
-                    .union(workspaceInfos[.unknown]?.tabs ?? [])
-                // cleanup workspace
-                await workspace.cleanUp(availableTabs: tabs)
-            }
-        }
-    }
-    
     func readMetadata(at taskFolder: URL) -> MetadataDTO? {
         let metadataURL = taskFolder.appendingPathComponent("metadata.json")
         do {
@@ -222,7 +174,18 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
         return taskFolders.sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
     }
     
-    
+    func findXcodeWorkspace(in directory: URL) -> URL? {
+        let fileManager = FileManager.default
+        let enumerator = fileManager.enumerator(at: directory, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles, .skipsPackageDescendants])
+
+        while let fileURL = enumerator?.nextObject() as? URL {
+            if fileURL.pathExtension == "xcworkspace" {
+                return fileURL
+            }
+        }
+
+        return nil
+    }
 }
 
 struct MetadataDTO: Codable {
