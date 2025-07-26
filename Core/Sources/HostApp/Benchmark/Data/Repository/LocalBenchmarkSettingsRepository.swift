@@ -5,7 +5,6 @@ class LocalBenchmarkSettingsRepository: BenchmarkSettingsRepository {
     private let localStorageManager: LocalStorageManager
     private let benchmarkDirectoriesKey = "benchmarkDirectories"
     private let benchmarkOutputDirectoryKey = "benchmarkOutputDirectory"
-    let projectRootURL: String = "/Users/christopherknapp/repos/ModernCleanArchitectureSwiftUI/"
     
     private var defaultOutputDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser

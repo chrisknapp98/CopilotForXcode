@@ -56,7 +56,7 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
               let xcodeWorkspaceFileURL = findXcodeWorkspace(in: benchmarkDirectory),
               let workspace = try? await workspacePool.fetchOrCreateWorkspace(workspaceURL: xcodeWorkspaceFileURL)
         else { return nil }
-        let entrypoint = metadata.mapToEntrypoint(prefixing: benchmarkSettingsRepository.projectRootURL)
+        let entrypoint = metadata.mapToEntrypoint(prefixing: benchmarkDirectory.path)
         let content: String = (try? String(contentsOf: entrypoint.fileURL, encoding: .utf8)) ?? ""
         let suggestionRequest = SuggestionProvider.SuggestionRequest(
             fileURL: entrypoint.fileURL,
@@ -212,12 +212,17 @@ struct MetadataDTO: Codable {
 
 extension MetadataDTO {
     func mapToEntrypoint(prefixing baseUrl: String) -> EntryPoint {
-        EntryPoint(
+        // Ensure there's exactly one "/" between the base and the filename
+        let cleanedBase = baseUrl.hasSuffix("/") ? baseUrl : baseUrl + "/"
+        let cleanedFilename = entrypoint.filename.hasPrefix("/") ? String(entrypoint.filename.dropFirst()) : entrypoint.filename
+        let fullPath = cleanedBase + cleanedFilename
+
+        return EntryPoint(
             cursor: CursorPosition(
                 line: entrypoint.cursor.line,
                 character: entrypoint.cursor.character
             ),
-            fileURL: URL(fileURLWithPath: baseUrl+entrypoint.filename)
+            fileURL: URL(fileURLWithPath: fullPath)
         )
     }
 }
