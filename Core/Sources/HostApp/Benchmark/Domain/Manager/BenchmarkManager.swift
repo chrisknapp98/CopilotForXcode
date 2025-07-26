@@ -14,6 +14,9 @@ import CopilotForXcodeKit
 import BuiltinExtension
 import GitHubCopilotService
 
+import Combine
+
+
 protocol BenchmarkManager {
     
 }
@@ -43,9 +46,10 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
     
     func getCodeSuggestions(at benchmarkDirectory: BenchmarkDirectory) async throws {
         let taskPaths: [URL] = getTaskFolders(in: benchmarkDirectory.url)
-        for taskPath in taskPaths.prefix(1) {
+        for (index, taskPath) in taskPaths.prefix(1).enumerated() {
             if let suggestion = await getCodeSuggestionFromService(at: taskPath, from: benchmarkDirectory.url) {
                 await applyCodeSuggestion(suggestion: suggestion.suggestion, at: suggestion.fileURL)
+                await storeContentInOutputDirectory(suggestion, for: index+1)
             }
             
         }
@@ -132,6 +136,40 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
             print("Applied suggestion to: \(fileURL.lastPathComponent)")
         } catch {
             print("Failed to apply suggestion to \(fileURL):", error)
+        }
+    }
+    
+    func storeContentInOutputDirectory(_ suggestion: SuggestionResponse, for taskNumber: Int) async {
+        guard let outputDirPath = await benchmarkSettingsRepository.outputDirectory.firstValue() else {
+            print("Could not retrieve output directory.")
+            return
+        }
+        let fileManager = FileManager.default
+        
+        let resolvedOutputDirPath = outputDirPath.replacingOccurrences(of: "~", with: fileManager.homeDirectoryForCurrentUser.path)
+        let outputDir = URL(fileURLWithPath: resolvedOutputDirPath)
+        
+        var isDirectory: ObjCBool = false
+        if !fileManager.fileExists(atPath: outputDir.path, isDirectory: &isDirectory) || !isDirectory.boolValue {
+            do {
+                try fileManager.createDirectory(at: outputDir, withIntermediateDirectories: true, attributes: nil)
+            } catch {
+                print("Failed to create output directory:", error)
+                return
+            }
+        }
+        
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let reformattedTimestamp = timestamp.replacingOccurrences(of: ":", with: "-")
+        let outputFileURL = outputDir.appendingPathComponent("Task-\(taskNumber)-\(reformattedTimestamp).json")
+        
+        do {
+            let dto = suggestion.toStoredDTO(timestamp: timestamp)
+            let data = try JSONEncoder().encode(dto)
+            try data.write(to: outputFileURL)
+            print("Stored suggestion at: \(outputFileURL.path)")
+        } catch {
+            print("Failed to write suggestion file:", error)
         }
     }
     
@@ -271,4 +309,63 @@ let exampleSuggestion = SuggestionBasic.CodeSuggestion(
 struct SuggestionResponse {
     let suggestion: SuggestionBasic.CodeSuggestion
     let fileURL: URL
+}
+
+
+extension AnyPublisher where Failure == Never {
+    /// Awaits the first emitted value of the publisher (only for Failure == Never)
+    func firstValue() async -> Output? {
+        await withCheckedContinuation { continuation in
+            var cancellable: AnyCancellable?
+            cancellable = self.first().sink { value in
+                continuation.resume(returning: value)
+                cancellable?.cancel()
+            }
+        }
+    }
+}
+
+
+struct StoredSuggestionDTO: Codable {
+    let fileURL: String
+    let id: String
+    let suggestionText: String
+    let position: CursorPositionDTO
+    let range: CursorRangeDTO
+    let createdAt: String
+    
+    struct CursorPositionDTO: Codable {
+        let line: Int
+        let character: Int
+    }
+    
+    struct CursorRangeDTO: Codable {
+        let start: CursorPositionDTO
+        let end: CursorPositionDTO
+    }
+}
+
+extension SuggestionResponse {
+    func toStoredDTO(timestamp: String) -> StoredSuggestionDTO {
+        StoredSuggestionDTO(
+            fileURL: fileURL.path,
+            id: suggestion.id,
+            suggestionText: suggestion.text,
+            position: .init(
+                line: suggestion.position.line,
+                character: suggestion.position.character
+            ),
+            range: .init(
+                start: .init(
+                    line: suggestion.range.start.line,
+                    character: suggestion.range.start.character
+                ),
+                end: .init(
+                    line: suggestion.range.end.line,
+                    character: suggestion.range.end.character
+                )
+            ),
+            createdAt: timestamp
+        )
+    }
 }
