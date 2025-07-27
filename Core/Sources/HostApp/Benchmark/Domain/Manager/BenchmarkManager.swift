@@ -62,6 +62,13 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
         else { return nil }
         let entrypoint = metadata.mapToEntrypoint(prefixing: benchmarkDirectory.path)
         let content: String = (try? String(contentsOf: entrypoint.fileURL, encoding: .utf8)) ?? ""
+        
+        let multiFileContextManager = MultiFileContextManager(
+            workspaceProvider: ManualWorkspaceProvider(workspace: workspace),
+            parser: SwiftProgrammingLanguageSyntaxParser()
+        )
+        let relevantSymbols = await multiFileContextManager.retrieveRelevantSymbolsForFileContent(content: content)
+        
         let suggestionRequest = SuggestionProvider.SuggestionRequest(
             fileURL: entrypoint.fileURL,
             relativePath: entrypoint.fileURL.path.replacingOccurrences(of: benchmarkDirectory.path, with: ""),
@@ -84,7 +91,8 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
             guard let suggestions, let firstSuggestion = suggestions.first else { return nil }
             return .init(
                 suggestion: firstSuggestion,
-                fileURL: entrypoint.fileURL
+                fileURL: entrypoint.fileURL,
+                relevantSymbolsFromRequest: Array(relevantSymbols.values)
             )
         } catch {
             print("CK \(error)")
@@ -324,6 +332,7 @@ let exampleSuggestion = SuggestionBasic.CodeSuggestion(
 struct SuggestionResponse {
     let suggestion: SuggestionBasic.CodeSuggestion
     let fileURL: URL
+    let relevantSymbolsFromRequest: [SymbolContent]
 }
 
 
@@ -348,6 +357,7 @@ struct StoredSuggestionDTO: Codable {
     let position: CursorPositionDTO
     let range: CursorRangeDTO
     let createdAt: String
+    let relevantSymbols: [RelevantSymbolsDTO]
     
     struct CursorPositionDTO: Codable {
         let line: Int
@@ -357,6 +367,15 @@ struct StoredSuggestionDTO: Codable {
     struct CursorRangeDTO: Codable {
         let start: CursorPositionDTO
         let end: CursorPositionDTO
+    }
+    
+    struct RelevantSymbolsDTO: Codable {
+        let fileURL: String
+        let name: String
+        let content: String
+        let startLine: Int
+        let endLine: Int
+        let kind: String
     }
 }
 
@@ -380,7 +399,21 @@ extension SuggestionResponse {
                     character: suggestion.range.end.character
                 )
             ),
-            createdAt: timestamp
+            createdAt: timestamp,
+            relevantSymbols: relevantSymbolsFromRequest.map { $0.toStoredDTO() }
+        )
+    }
+}
+
+extension SymbolContent {
+    func toStoredDTO() -> StoredSuggestionDTO.RelevantSymbolsDTO {
+        .init(
+            fileURL: fileURL,
+            name: symbol.name,
+            content: content,
+            startLine: symbol.startLine,
+            endLine: symbol.endLine,
+            kind: symbol.kind.rawValue
         )
     }
 }

@@ -1,17 +1,17 @@
 import Foundation
 
-class MultiFileContextManager {
+public class MultiFileContextManager {
     private let workspaceProvider: WorkspaceProvider
     private let parser: ProgrammingLanguageSyntaxParser
     
-    init(workspaceProvider: WorkspaceProvider, parser: ProgrammingLanguageSyntaxParser) {
+    public init(workspaceProvider: WorkspaceProvider, parser: ProgrammingLanguageSyntaxParser) {
         self.workspaceProvider = workspaceProvider
         self.parser = parser
     }
     
     /// List files within workspace recursively
     /// Retrieved from: https://stackoverflow.com/a/57640445
-    func listFilesInWorkspace() async -> [String] {
+    public func listFilesInWorkspace() async -> [String] {
         guard let workspaceURL = try? await workspaceProvider.getProjectRootURL()
         else { return [] }
         var files = [String]()
@@ -32,7 +32,7 @@ class MultiFileContextManager {
         return files
     }
     
-    func readFileContents() async -> [FileContent] {
+    public func readFileContents() async -> [FileContent] {
         let fileURLs = await listFilesInWorkspace()
         return fileURLs.compactMap { fileURLString in
             guard let fileURL = URL(string: fileURLString) else { return nil }
@@ -46,7 +46,7 @@ class MultiFileContextManager {
         }
     }
     
-    func classifyContentWithinFile() async -> [String: SymbolContent] {
+    public func classifyContentWithinFiles() async -> [String: SymbolContent] {
         let fileContents = await readFileContents()
         var result: [String: SymbolContent] = [:]
 
@@ -59,6 +59,19 @@ class MultiFileContextManager {
         }
 
         return result
+    }
+    
+    public func retrieveRelevantSymbolsForFileContent(content: String) async -> [String: SymbolContent] {
+        let allSymbols = await classifyContentWithinFiles()
+        var relevantSymbols: [String: SymbolContent] = [:]
+
+        for (symbolName, symbolContent) in allSymbols {
+            if content.contains(symbolName) {
+                relevantSymbols[symbolName] = symbolContent
+            }
+        }
+
+        return relevantSymbols
     }
     
     private func mergeExtensionsIntoBaseDeclarations(_ symbols: inout [SymbolContent]) {

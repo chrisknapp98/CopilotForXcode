@@ -1,4 +1,4 @@
-enum ClassificationKeywords: String {
+public enum ClassificationKeywords: String {
     case classWord = "class"
     case structWord = "struct"
     case enumWord = "enum"

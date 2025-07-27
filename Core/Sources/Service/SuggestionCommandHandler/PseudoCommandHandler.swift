@@ -439,16 +439,6 @@ extension PseudoCommandHandler {
         let tabSize = filespace.codeMetadata.tabSize ?? 4
         let indentSize = filespace.codeMetadata.indentSize ?? 4
         let usesTabsForIndentation = filespace.codeMetadata.usesTabsForIndentation ?? false
-        let multiFileContextManager = MultiFileContextManager(
-            workspaceProvider: XcodeInspectorWorkspaceProvider(),
-            parser: SwiftProgrammingLanguageSyntaxParser()
-        )
-        let classifiedSymbols = await multiFileContextManager.classifyContentWithinFile()
-        if let entrypoint,
-           let fileContent = try? String(contentsOf: entrypoint.fileURL, encoding: .utf8) {
-            content.content = fileContent
-            content.cursorPosition = entrypoint.cursor
-        }
         return .init(
             content: content.content,
             lines: content.lines,

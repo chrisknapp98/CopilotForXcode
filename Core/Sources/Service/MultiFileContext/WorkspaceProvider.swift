@@ -2,7 +2,7 @@ import Foundation
 import Workspace
 import XcodeInspector
 
-protocol WorkspaceProvider {
+public protocol WorkspaceProvider {
     func workspace() async throws -> Workspace?
     func getProjectRootURL() async throws -> URL
 }
@@ -37,4 +37,20 @@ class XcodeInspectorWorkspaceProvider: WorkspaceProvider {
 
 enum WorkspaceError: Error {
     case errorGettingWorkspace
+}
+
+public class ManualWorkspaceProvider: WorkspaceProvider {
+    private let workspace: Workspace
+    
+    public init(workspace: Workspace) {
+        self.workspace = workspace
+    }
+    
+    public func workspace() async throws -> Workspace? {
+        workspace
+    }
+    
+    public func getProjectRootURL() async throws -> URL {
+        workspace.projectRootURL
+    }
 }

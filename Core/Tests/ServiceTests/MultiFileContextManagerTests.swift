@@ -28,7 +28,7 @@ class MultiFileContextManagerTests: XCTestCase {
     
     func testClassifyingCode() async {
         let sut = sut
-        let classifiedSymbols = await sut.classifyContentWithinFile()
+        let classifiedSymbols = await sut.classifyContentWithinFiles()
         // symbols
         XCTAssertNotEqual(classifiedSymbols.count, 0)
     }

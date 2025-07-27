@@ -1,5 +1,5 @@
-struct SymbolContent {
-    let fileURL: String
-    let content: String
-    var symbol: SymbolInfo
+public struct SymbolContent {
+    public let fileURL: String
+    public let content: String
+    public internal(set) var symbol: SymbolInfo
 }
