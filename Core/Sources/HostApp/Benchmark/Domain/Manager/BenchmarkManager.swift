@@ -188,7 +188,9 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
         
         do {
             let dto = suggestion.toStoredDTO(timestamp: timestamp)
-            let data = try JSONEncoder().encode(dto)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted]
+            let data = try encoder.encode(dto)
             try data.write(to: outputFileURL)
             print("Stored suggestion at: \(outputFileURL.path)")
         } catch {
