@@ -49,7 +49,7 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
         for (index, taskPath) in taskPaths.prefix(1).enumerated() {
             if let suggestion = await getCodeSuggestionFromService(at: taskPath, from: benchmarkDirectory.url) {
                 await applyCodeSuggestion(suggestion: suggestion.suggestion, at: suggestion.fileURL)
-                await storeContentInOutputDirectory(suggestion, for: index+1)
+                await storeContentInOutputDirectory(suggestion, for: index+1, in: benchmarkDirectory)
             }
             
         }
@@ -139,7 +139,11 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
         }
     }
     
-    func storeContentInOutputDirectory(_ suggestion: SuggestionResponse, for taskNumber: Int) async {
+    func storeContentInOutputDirectory(
+        _ suggestion: SuggestionResponse,
+        for taskNumber: Int,
+        in benchmarkDirectory: BenchmarkDirectory
+    ) async {
         guard let outputDirPath = await benchmarkSettingsRepository.outputDirectory.firstValue() else {
             print("Could not retrieve output directory.")
             return
@@ -159,9 +163,20 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
             }
         }
         
+        var isBenchmarkDirADirectory: ObjCBool = false
+        let outputBenchmarkDir = outputDir.appendingPathComponent(benchmarkDirectory.name, isDirectory: true)
+        if !fileManager.fileExists(atPath: outputBenchmarkDir.path, isDirectory: &isBenchmarkDirADirectory) || !isBenchmarkDirADirectory.boolValue {
+            do {
+                try fileManager.createDirectory(at: outputBenchmarkDir, withIntermediateDirectories: true, attributes: nil)
+            } catch {
+                print("Failed to create output directory:", error)
+                return
+            }
+        }
+        
         let timestamp = ISO8601DateFormatter().string(from: Date())
         let reformattedTimestamp = timestamp.replacingOccurrences(of: ":", with: "-")
-        let outputFileURL = outputDir.appendingPathComponent("Task-\(taskNumber)-\(reformattedTimestamp).json")
+        let outputFileURL = outputBenchmarkDir.appendingPathComponent("Task-\(taskNumber)-\(reformattedTimestamp).json")
         
         do {
             let dto = suggestion.toStoredDTO(timestamp: timestamp)
