@@ -3,6 +3,12 @@ import Toast
 
 class BenchmarkViewModel: ObservableObject {
     @Published var benchmarkDirectories: [BenchmarkDirectory] = []
+    @Published var isMultiFileContextEnabled: Bool = true {
+        didSet {
+            guard oldValue != isMultiFileContextEnabled else { return }
+            Task { await benchmarkManager.updateMultiFileContextState(isMultiFileContextEnabled) }
+        }
+    }
     
     private let benchmarkSettingsRepository: BenchmarkSettingsRepository
     private let benchmarkManager: RealtimeSuggestionControllerBenchmarkManager
@@ -12,6 +18,9 @@ class BenchmarkViewModel: ObservableObject {
     init(benchmarkSettingsRepository: BenchmarkSettingsRepository) {
         self.benchmarkSettingsRepository = benchmarkSettingsRepository
         self.benchmarkManager = RealtimeSuggestionControllerBenchmarkManager(benchmarkSettingsRepository: benchmarkSettingsRepository)
+        benchmarkManager.isMultiFileEnabled
+            .assign(to: \.isMultiFileContextEnabled, on: self)
+            .store(in: &cancellables)
     }
     
     func loadBenchmarkDirectories() {

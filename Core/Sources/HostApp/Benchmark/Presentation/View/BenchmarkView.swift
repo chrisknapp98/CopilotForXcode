@@ -12,10 +12,11 @@ struct BenchmarkView: View {
     var body: some View {
         ScrollView {
             VStack {
-                HStack {
+                HStack(spacing: 20) {
                     Text("Run Benchmark")
                         .font(.title)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    Toggle("Multi File Context Enabled", isOn: $viewModel.isMultiFileContextEnabled)
                     OutputConfigurationButtonView(module: module)
                 }
                 .padding(.vertical)

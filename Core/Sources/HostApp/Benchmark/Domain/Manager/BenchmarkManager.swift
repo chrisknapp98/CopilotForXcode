@@ -26,6 +26,11 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
     @WorkspaceActor
     private let workspacePool: WorkspacePool
     
+    private let isMultiFileEnabledSubject = CurrentValueSubject<Bool, Never>(true)
+    var isMultiFileEnabled: AnyPublisher<Bool, Never> {
+        isMultiFileEnabledSubject.eraseToAnyPublisher()
+    }
+    
     init(benchmarkSettingsRepository: BenchmarkSettingsRepository) {
         @Dependency(\.workspacePool) var workspacePool
         BuiltinExtensionManager.shared.setupExtensions([
@@ -67,7 +72,14 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
             workspaceProvider: ManualWorkspaceProvider(workspace: workspace),
             parser: SwiftProgrammingLanguageSyntaxParser()
         )
-        let relevantSymbols = await multiFileContextManager.retrieveRelevantSymbolsForFileContent(content: content)
+        let relevantSymbols: [SymbolContent] = await {
+            if isMultiFileEnabledSubject.value {
+                let symbols = await multiFileContextManager.retrieveRelevantSymbolsForFileContent(content: content)
+                return Array(symbols.values)
+            } else {
+                return []
+            }
+        }()
         
         let suggestionRequest = SuggestionProvider.SuggestionRequest(
             fileURL: entrypoint.fileURL,
@@ -80,7 +92,7 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
             tabSize: 4,
             indentSize: 4,
             usesTabsForIndentation: false,
-            relevantCodeSnippets: []
+            relevantCodeSnippets: relevantSymbols.mapToRelevantCodeSnippets()
         )
         let workspaceInfo = WorkspaceInfo(workspaceURL: xcodeWorkspaceFileURL, projectURL: benchmarkDirectory)
         do {
@@ -92,7 +104,7 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
             return .init(
                 suggestion: firstSuggestion,
                 fileURL: entrypoint.fileURL,
-                relevantSymbolsFromRequest: Array(relevantSymbols.values)
+                relevantSymbolsFromRequest: relevantSymbols
             )
         } catch {
             print("CK \(error)")
@@ -182,9 +194,20 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
             }
         }
         
+        let contextFolderName = isMultiFileEnabledSubject.value ? "with context" : "without context"
+        let contextFolder = outputBenchmarkDir.appendingPathComponent(contextFolderName, isDirectory: true)
+        if !fileManager.fileExists(atPath: contextFolder.path, isDirectory: &isDirectory) || !isDirectory.boolValue {
+            do {
+                try fileManager.createDirectory(at: contextFolder, withIntermediateDirectories: true, attributes: nil)
+            } catch {
+                print("Failed to create context directory:", error)
+                return
+            }
+        }
+        
         let timestamp = ISO8601DateFormatter().string(from: Date())
         let reformattedTimestamp = timestamp.replacingOccurrences(of: ":", with: "-")
-        let outputFileURL = outputBenchmarkDir.appendingPathComponent("Task-\(taskNumber)-\(reformattedTimestamp).json")
+        let outputFileURL = contextFolder.appendingPathComponent("Task-\(taskNumber)-\(reformattedTimestamp).json")
         
         do {
             let dto = suggestion.toStoredDTO(timestamp: timestamp)
@@ -248,6 +271,11 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
         }
 
         return nil
+    }
+    
+    @MainActor
+    func updateMultiFileContextState(_ newValue: Bool) {
+        isMultiFileEnabledSubject.send(newValue)
     }
 }
 
@@ -417,5 +445,17 @@ extension SymbolContent {
             endLine: symbol.endLine,
             kind: symbol.kind.rawValue
         )
+    }
+}
+
+extension Array where Element == SymbolContent {
+    func mapToRelevantCodeSnippets() -> [SuggestionProvider.RelevantCodeSnippet] {
+        map { symbol in
+                .init(
+                    content: symbol.content,
+                    priority: 0,
+                    filePath: symbol.fileURL
+                )
+        }
     }
 }
