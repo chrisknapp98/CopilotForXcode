@@ -56,7 +56,7 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
                 await applyCodeSuggestion(suggestion: suggestion.suggestion, at: suggestion.fileURL)
                 await storeContentInOutputDirectory(suggestion, for: index+1, in: benchmarkDirectory)
             }
-            
+            await cleanUp()
         }
     }
     
@@ -99,7 +99,6 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
             // only works when setting document version GitHubCopilotService to 0
             let suggestions = try await workspace.suggestionService?.getSuggestions(suggestionRequest, workspaceInfo: workspaceInfo)
 //            let suggestions: [SuggestionBasic.CodeSuggestion]? = [exampleSuggestion]
-            await workspace.closeFilespace(fileURL: URL(fileURLWithPath: metadata.entrypoint.filename))
             guard let suggestions, let firstSuggestion = suggestions.first else { return nil }
             return .init(
                 suggestion: firstSuggestion,
@@ -218,6 +217,12 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
             print("Stored suggestion at: \(outputFileURL.path)")
         } catch {
             print("Failed to write suggestion file:", error)
+        }
+    }
+    
+    func cleanUp() async {
+        for (url, _) in await workspacePool.workspaces {
+            await workspacePool.removeWorkspace(url: url)
         }
     }
     
