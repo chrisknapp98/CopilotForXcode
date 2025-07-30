@@ -9,6 +9,7 @@ class BenchmarkViewModel: ObservableObject {
             Task { await benchmarkManager.updateMultiFileContextState(isMultiFileContextEnabled) }
         }
     }
+    @Published private(set) var taskStates: [TaskStatus] = []
     
     private let benchmarkSettingsRepository: BenchmarkSettingsRepository
     private let benchmarkManager: RealtimeSuggestionControllerBenchmarkManager
@@ -21,6 +22,7 @@ class BenchmarkViewModel: ObservableObject {
         benchmarkManager.isMultiFileEnabled
             .assign(to: \.isMultiFileContextEnabled, on: self)
             .store(in: &cancellables)
+        benchmarkManager.taskStates.assign(to: \.taskStates, on: self).store(in: &cancellables)
     }
     
     func loadBenchmarkDirectories() {

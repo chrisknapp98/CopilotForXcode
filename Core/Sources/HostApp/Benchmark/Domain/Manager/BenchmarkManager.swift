@@ -30,6 +30,10 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
     var isMultiFileEnabled: AnyPublisher<Bool, Never> {
         isMultiFileEnabledSubject.eraseToAnyPublisher()
     }
+    private let taskStatesSubject = CurrentValueSubject<[TaskStatus], Never>([])
+    var taskStates: AnyPublisher<[TaskStatus], Never> {
+        taskStatesSubject.eraseToAnyPublisher()
+    }
     
     init(benchmarkSettingsRepository: BenchmarkSettingsRepository) {
         @Dependency(\.workspacePool) var workspacePool
@@ -51,10 +55,16 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
     
     func getCodeSuggestions(at benchmarkDirectory: BenchmarkDirectory) async throws {
         let taskPaths: [URL] = getTaskFolders(in: benchmarkDirectory.url)
+        let initialTaskStates = taskPaths.map { _ in TaskStatus.notStarted }
+        await updateTaskStates(initialTaskStates)
         for (index, taskPath) in taskPaths.prefix(1).enumerated() {
+            await updateTaskStatus(.running, at: index)
             if let suggestion = await getCodeSuggestionFromService(at: taskPath, from: benchmarkDirectory.url) {
                 await applyCodeSuggestion(suggestion: suggestion.suggestion, at: suggestion.fileURL)
                 await storeContentInOutputDirectory(suggestion, for: index+1, in: benchmarkDirectory)
+                await updateTaskStatus(.success, at: index)
+            } else {
+                await updateTaskStatus(.failure, at: index)
             }
             await cleanUp()
         }
@@ -282,6 +292,18 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
     func updateMultiFileContextState(_ newValue: Bool) {
         isMultiFileEnabledSubject.send(newValue)
     }
+    
+    @MainActor
+    private func updateTaskStates(_ newValue: [TaskStatus]) {
+        taskStatesSubject.send(newValue)
+    }
+    
+    @MainActor
+    private func updateTaskStatus(_ newValue: TaskStatus, at index: Int) {
+        var updatedValue = taskStatesSubject.value
+        updatedValue[index] = newValue
+        taskStatesSubject.send(updatedValue)
+    }
 }
 
 struct MetadataDTO: Codable {
@@ -463,4 +485,11 @@ extension Array where Element == SymbolContent {
                 )
         }
     }
+}
+
+enum TaskStatus {
+    case success
+    case failure
+    case notStarted
+    case running
 }
