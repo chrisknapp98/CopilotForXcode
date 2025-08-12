@@ -264,6 +264,7 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
                     let folderName = fileURL.lastPathComponent
                     let range = NSRange(location: 0, length: folderName.utf16.count)
                     if regex.firstMatch(in: folderName, options: [], range: range) != nil {
+                        guard !fileURL.path.contains("/Tests/") else { continue }
                         taskFolders.append(fileURL)
                     }
                 }
