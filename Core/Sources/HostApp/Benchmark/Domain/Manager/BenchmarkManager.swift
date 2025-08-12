@@ -273,7 +273,21 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
             }
         }
 
-        return taskFolders.sorted(by: { $0.lastPathComponent < $1.lastPathComponent })
+        return taskFolders.sorted { lhs, rhs in
+            let lhsNumber = extractTaskNumber(from: lhs.lastPathComponent) ?? 0
+            let rhsNumber = extractTaskNumber(from: rhs.lastPathComponent) ?? 0
+            return lhsNumber < rhsNumber
+        }
+    }
+    
+    private func extractTaskNumber(from name: String) -> Int? {
+        let regex = try! NSRegularExpression(pattern: #"Task-(\d+)"#)
+        let range = NSRange(location: 0, length: name.utf16.count)
+        if let match = regex.firstMatch(in: name, options: [], range: range),
+           let numberRange = Range(match.range(at: 1), in: name) {
+            return Int(name[numberRange])
+        }
+        return nil
     }
     
     func findXcodeWorkspace(in directory: URL) -> URL? {
