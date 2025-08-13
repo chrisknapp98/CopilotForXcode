@@ -20,6 +20,10 @@ public final class BuiltinExtensionWorkspacePlugin: WorkspacePlugin {
     override public func didUpdateFilespace(_ filespace: Filespace, content: String) {
         notifyUpdateFile(filespace: filespace, content: content)
     }
+    
+    override public func didUpdateFilespace(_ filespace: Filespace, content: String, version: Int) {
+        notifyUpdateFile(filespace: filespace, content: content, version: version)
+    }
 
     override public func didCloseFilespace(_ fileURL: URL) {
         Task {
@@ -52,6 +56,20 @@ public final class BuiltinExtensionWorkspacePlugin: WorkspacePlugin {
                     .init(workspaceURL: workspaceURL, projectURL: projectRootURL),
                     didUpdateDocumentAt: filespace.fileURL, 
                     content: content
+                )
+            }
+        }
+    }
+    
+    public func notifyUpdateFile(filespace: Filespace, content: String, version: Int) {
+        Task {
+            guard filespace.isTextReadable else { return }
+            for ext in extensionManager.extensions {
+                ext.workspace(
+                    .init(workspaceURL: workspaceURL, projectURL: projectRootURL),
+                    didUpdateDocumentAt: filespace.fileURL, 
+                    content: content,
+                    version: version
                 )
             }
         }

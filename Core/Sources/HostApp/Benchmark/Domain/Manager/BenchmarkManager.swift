@@ -63,6 +63,7 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
                 await applyCodeSuggestion(suggestion: suggestion.suggestion, at: suggestion.fileURL)
                 await storeContentInOutputDirectory(suggestion, for: index+1, in: benchmarkDirectory)
                 await updateTaskStatus(.success, at: index)
+                try await Task.sleep(nanoseconds: 3_000_000_000)
             } else {
                 await updateTaskStatus(.failure, at: index)
             }
@@ -105,9 +106,13 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
             relevantCodeSnippets: relevantSymbols.mapToRelevantCodeSnippets()
         )
         let workspaceInfo = WorkspaceInfo(workspaceURL: xcodeWorkspaceFileURL, projectURL: benchmarkDirectory)
+        await openFilespaces(entrypoint: entrypoint, relevantSymbols: relevantSymbols, in: workspace)
+        await simulateInitialEditorChange(entrypoint: entrypoint, content: content, in: workspace)
         do {
             // only works when setting document version GitHubCopilotService to 0
             let suggestions = try await workspace.suggestionService?.getSuggestions(suggestionRequest, workspaceInfo: workspaceInfo)
+            await saveFilespace(entrypoint: entrypoint, in: workspace)
+            await closeFilespaces(entrypoint: entrypoint, relevantSymbols: relevantSymbols, in: workspace)
 //            let suggestions: [SuggestionBasic.CodeSuggestion]? = [exampleSuggestion]
             guard let suggestions, let firstSuggestion = suggestions.first else { return nil }
             return .init(
@@ -120,6 +125,34 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
             return nil
         }
 //        return nil
+    }
+    
+    private func openFilespaces(entrypoint: EntryPoint, relevantSymbols: [SymbolContent], in workspace: Workspace) async {
+        for symbol in relevantSymbols {
+            if let filespace = try? await workspace.createFilespaceIfNeeded(fileURL: URL(fileURLWithPath: symbol.fileURL)) {
+                await workspace.didOpenFilespace(filespace)
+            }
+        }
+        if let filespace = try? await workspace.createFilespaceIfNeeded(fileURL: entrypoint.fileURL) {
+            await workspace.didOpenFilespace(filespace)
+        }
+    }
+    
+    private func closeFilespaces(entrypoint: EntryPoint, relevantSymbols: [SymbolContent], in workspace: Workspace) async {
+        for symbol in relevantSymbols {
+            await workspace.didCloseFilespace(URL(fileURLWithPath: symbol.fileURL))
+        }
+        await workspace.didCloseFilespace(entrypoint.fileURL)
+    }
+    
+    private func saveFilespace(entrypoint: EntryPoint, in workspace: Workspace) async {
+        if let filespace = try? await workspace.createFilespaceIfNeeded(fileURL: entrypoint.fileURL) {
+            await workspace.didSaveFilespace(filespace)
+        }
+    }
+    
+    private func simulateInitialEditorChange(entrypoint: EntryPoint, content: String, in workspace: Workspace) async {
+        await workspace.didUpdateFilespace(fileURL: entrypoint.fileURL, content: content, version: 1)
     }
     
     func applyCodeSuggestion(suggestion: SuggestionBasic.CodeSuggestion, at fileURL: URL) async {
