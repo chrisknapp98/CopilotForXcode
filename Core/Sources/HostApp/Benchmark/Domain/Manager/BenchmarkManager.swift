@@ -848,37 +848,25 @@ public extension OpenAICompletionRepository {
 
         // The model's entire reply is a JSON object. Decode it.
         let edit = try JSONDecoder().decode(CodeEdit.self, from: Data(content.utf8))
-        let editWithCorrectedRange = calculateStartAndEndRangeFromSuggestion(
-            request: request,
-            suggestion: edit.text
+        let fixedSuggestionText = removeClosingBraceIfNeeded(
+            suggestion: edit.text,
+            promptCode: request.content,
+            line: request.cursorPosition.line
         )
-        return editWithCorrectedRange
+        let fixedEdit = CodeEdit(text: fixedSuggestionText, range: edit.range)
+        return fixedEdit
     }
     
-    private func calculateStartAndEndRangeFromSuggestion(
-        request: SuggestionRequest,
-        suggestion: String
-    ) -> CodeEdit {
-        let start = CodeEdit.Position(
-            line: request.cursorPosition.line,
-            character: 0
-        )
-        let suggestionLines = suggestion.components(separatedBy: "\n")
-        let endLine = request.cursorPosition.line + suggestionLines.count
-        let endCharacter = suggestionLines.last?.count ?? 0
-        let end = CodeEdit.Position(
-            line: endLine,
-            character: endCharacter
-        )
-        return CodeEdit(
-            text: suggestion,
-            range: CodeEdit.TextRange(
-                start: start,
-                end: end
-            )
-        )
+    private func removeClosingBraceIfNeeded(suggestion: String, promptCode: String, line: Int) -> String {
+        let lines = suggestion.components(separatedBy: "\n")
+        let promptCodeLines = promptCode.components(separatedBy: "\n")
+        let lineAfterCursor = promptCodeLines[line+1]
+        if lineAfterCursor == lines.last {
+            return lines.dropLast().joined(separator: "\n")
+        } else {
+            return suggestion
+        }
     }
-        
     
     private func detectLanguage(from path: String) -> String {
         switch (path as NSString).pathExtension.lowercased() {
@@ -917,17 +905,16 @@ public extension OpenAICompletionRepository {
         Return ONE compact JSON object and nothing else (no code fences, no prose).
 
         Semantics:
-        - Ranges use 0-based LSP-style coordinates and are half-open: (start, end).
+        - Range describes from what line and character to what line and character the output text should be replaced
+        - Ranges use 0-based LSP-style coordinates: (start, end).
         - Coordinates are relative to the current (pre-edit) buffer.
         - The replacement range MUST cover the entire CURRENT LINE (from character 0).
-        - The provided range MUST cover the entire last line UNTIL THE LAST CHARACTER.
-        - You SHOULD extend the range into following lines to complete the construct.
-        - The text BEFORE and AFTER is kept as-is; do not repeat it.
-        - The output text will be inserted at the cursor position, keeping BEFORE and AFTER as-is.
-        - As can be seen in AFTER, the closing brace `}` of the function to complete is already existing. The output text must NOT contain it. Otherwise it will be duplicated and the code won't compile.
+        - You can extend the range into following lines to complete the construct.
+        - The output text will be inserted in the given range.
 
         Output requirements:
         - The "text" must include the full updated CURRENT LINE (where the cursor is) including the function definition and any additional lines needed to complete the implementation.
+        - IMPORTANT: As can be seen in AFTER, the closing brace `}` of the function to complete is already existing. It MUST not be included in output text. Otherwise a duplicated brace will lead to a compilation error.
         - Do NOT begin the text with the first bytes of AFTER.
         - No placeholders or comments like "TODO" or "// Implementation goes here".
         - Respect indentation \(indentDescriptor) and file style.
@@ -968,7 +955,7 @@ public extension OpenAICompletionRepository {
     Respond with JSON:
     {
       "text": "func greet() {\n        print(\"Hello\")\n",
-      "range": { "start": { "line": 1, "character": 0 }, "end": { "line": 3, "character": 5 } }
+      "range": { "start": { "line": 1, "character": 0 }, "end": { "line": 1, "character": 18 } }
     }
     """
         )
