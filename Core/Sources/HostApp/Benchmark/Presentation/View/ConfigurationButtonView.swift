@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct OutputConfigurationButtonView: View {
+struct ConfigurationButtonView: View {
     private let module: BenchmarkModuleType
     @State private var isShowingSheet = false
     
@@ -12,10 +12,10 @@ struct OutputConfigurationButtonView: View {
         Button {
             isShowingSheet.toggle()
         } label : {
-            Label("Configure Output", systemImage: "gear")
+            Label("Configure", systemImage: "gear")
         }
         .sheet(isPresented: $isShowingSheet) {
-            OutputConfigurationView(module: module)
+            ConfigurationView(module: module)
         }
     }
 }

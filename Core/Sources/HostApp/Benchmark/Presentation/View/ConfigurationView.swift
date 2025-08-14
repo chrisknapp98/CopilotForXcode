@@ -1,8 +1,9 @@
 import SwiftUI
 
-struct OutputConfigurationView: View {
+struct ConfigurationView: View {
     @State private var currentOutputDirectory: String = ""
-    @StateObject var viewModel: OutputConfigurationViewModel
+    @State private var currentOpenAIKey: String = ""
+    @StateObject var viewModel: ConfigurationViewModel
     @Environment(\.dismiss) private var dismiss
 
     private let labelWidth: CGFloat = 120
@@ -13,6 +14,13 @@ struct OutputConfigurationView: View {
     
     var body: some View {
         VStack {
+            HStack(alignment: .top) {
+                Text("OpenAI API Key:")
+                    .frame(width: labelWidth, alignment: .leading)
+                TextField("Key", text: $currentOpenAIKey, prompt: Text("Key"))
+                    .textFieldStyle(PlainTextFieldStyle())
+            }
+            .padding([.top, .horizontal])
             HStack(alignment: .top) {
                 Text("Output Directory:")
                     .frame(width: labelWidth, alignment: .leading)
@@ -34,6 +42,7 @@ struct OutputConfigurationView: View {
                 }
                 Button("Save") {
                     viewModel.saveOutputDirectory(currentOutputDirectory)
+                    viewModel.saveOpenAIKey(currentOpenAIKey)
                     dismiss()
                 }
             }
@@ -41,6 +50,7 @@ struct OutputConfigurationView: View {
         }
         .onAppear {
             currentOutputDirectory = viewModel.outputDirectory
+            currentOpenAIKey = viewModel.openAIKey
         }
     }
     

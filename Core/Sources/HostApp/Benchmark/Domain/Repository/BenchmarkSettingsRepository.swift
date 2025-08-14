@@ -6,4 +6,6 @@ protocol BenchmarkSettingsRepository {
     func saveBenchmarkDirectory(_ directory: BenchmarkDirectory) throws
     func deleteBenchmarkDirectory(_ directory: BenchmarkDirectory) throws
     func saveBenchmarkOutputDirectory(_ directory: String) throws
+    var openAIKey: AnyPublisher<String, Never> { get }
+    func saveOpenAIKey(_ key: String) throws
 }

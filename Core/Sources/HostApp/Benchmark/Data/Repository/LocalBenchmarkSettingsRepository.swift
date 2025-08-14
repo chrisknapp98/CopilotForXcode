@@ -5,6 +5,7 @@ class LocalBenchmarkSettingsRepository: BenchmarkSettingsRepository {
     private let localStorageManager: LocalStorageManager
     private let benchmarkDirectoriesKey = "benchmarkDirectories"
     private let benchmarkOutputDirectoryKey = "benchmarkOutputDirectory"
+    private let openAIKeyDefaultsKey = "openAIKey"
     
     private var defaultOutputDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -21,6 +22,11 @@ class LocalBenchmarkSettingsRepository: BenchmarkSettingsRepository {
         benchmarkOutputDirectory.eraseToAnyPublisher()
     }
     
+    private let currentOpenAIKey: CurrentValueSubject<String, Never> = CurrentValueSubject("")
+    var openAIKey: AnyPublisher<String, Never> {
+        currentOpenAIKey.eraseToAnyPublisher()
+    }
+    
     init(localStorageManager: LocalStorageManager) {
         self.localStorageManager = localStorageManager
         if let benchmarkDirectories = try? retrieveBenchmarkDirectories() {
@@ -28,6 +34,9 @@ class LocalBenchmarkSettingsRepository: BenchmarkSettingsRepository {
         }
         if let outputDirectory = try? loadBenchmarkOutputDirectory() {
             benchmarkOutputDirectory.send(outputDirectory)
+        }
+        if let openAIKey = try? loadOpenAIKey() {
+            currentOpenAIKey.send("")
         }
     }
     
@@ -68,6 +77,15 @@ class LocalBenchmarkSettingsRepository: BenchmarkSettingsRepository {
     }
     
     private func deleteBenchmarkOutputDirectory() {
+    }
+    
+    private func loadOpenAIKey() throws -> String? {
+        return try? localStorageManager.load(key: openAIKeyDefaultsKey)
+    }
+    
+    func saveOpenAIKey(_ key: String) throws {
+        try localStorageManager.save(codable: key, key: openAIKeyDefaultsKey)
+        currentOpenAIKey.send(key)
     }
 }
 

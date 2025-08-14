@@ -1,6 +1,6 @@
 protocol BenchmarkModuleType {
     func provide() -> BenchmarkViewModel
-    func provide() -> OutputConfigurationViewModel
+    func provide() -> ConfigurationViewModel
     func provide() -> AddDirectoryViewModel
 }
 
@@ -31,8 +31,8 @@ class BenchmarkModule: BenchmarkModuleType {
         )
     }
     
-    func provide() -> OutputConfigurationViewModel {
-        OutputConfigurationViewModel(
+    func provide() -> ConfigurationViewModel {
+        ConfigurationViewModel(
             benchmarkSettingsRepository: component()
         )
     }
