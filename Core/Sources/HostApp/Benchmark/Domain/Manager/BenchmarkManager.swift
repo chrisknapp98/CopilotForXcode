@@ -34,6 +34,8 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
     var taskStates: AnyPublisher<[TaskStatus], Never> {
         taskStatesSubject.eraseToAnyPublisher()
     }
+    private var openAIKey: String?
+    private var cancellables = Set<AnyCancellable>()
     
     init(benchmarkSettingsRepository: BenchmarkSettingsRepository) {
         @Dependency(\.workspacePool) var workspacePool
@@ -51,24 +53,29 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
         }
         self.workspacePool = workspacePool
         self.benchmarkSettingsRepository = benchmarkSettingsRepository
+        
+        benchmarkSettingsRepository.benchmarkDirectories.sink { [weak self] benchmarkDirectories in
+            for directory in benchmarkDirectories {
+                guard let taskPaths: [URL] = self?.getTaskFolders(in: directory.url) else {
+                    return
+                }
+                let initialTaskStates = taskPaths.map { _ in TaskStatus.notStarted }
+                Task { await self?.updateTaskStates(initialTaskStates) }
+            }
+        }.store(in: &cancellables)
+        
+        benchmarkSettingsRepository.openAIKey.sink { [weak self] key in
+            self?.openAIKey = key
+        }.store(in: &cancellables)
     }
     
     func getCodeSuggestions(at benchmarkDirectory: BenchmarkDirectory) async throws {
         let taskPaths: [URL] = getTaskFolders(in: benchmarkDirectory.url)
-        let initialTaskStates = taskPaths.map { _ in TaskStatus.notStarted }
+        let initialTaskStates = taskPaths.map { _ in TaskStatus.scheduled }
         await updateTaskStates(initialTaskStates)
-        for (index, taskPath) in taskPaths.prefix(1).enumerated() {
-            await updateTaskStatus(.running, at: index)
-            if let suggestion = await getCodeSuggestionFromService(at: taskPath, from: benchmarkDirectory.url) {
-//            if let suggestion = await getCodeSuggestionFromOpenAI(at: taskPath, from: benchmarkDirectory.url) {
-                await applyCodeSuggestion(suggestion: suggestion.suggestion, at: suggestion.fileURL)
-                await storeContentInOutputDirectory(suggestion, for: index+1, in: benchmarkDirectory)
-                await updateTaskStatus(.success, at: index)
-                try await Task.sleep(nanoseconds: 3_000_000_000)
-            } else {
-                await updateTaskStatus(.failure, at: index)
-            }
-            await cleanUp()
+        for (index, _) in taskPaths.prefix(1).enumerated() {
+            await runTask(at: index, in: benchmarkDirectory)
+            try await Task.sleep(nanoseconds: 3_000_000_000)
         }
     }
     
@@ -156,7 +163,22 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
         await workspace.didUpdateFilespace(fileURL: entrypoint.fileURL, content: content, version: 1)
     }
     
-    func getCodeSuggestionFromOpenAI(at directory: URL, from benchmarkDirectory: URL) async -> SuggestionResponse? {
+    func runTask(at index: Int, in benchmarkDirectory: BenchmarkDirectory) async {
+        let taskPath = getTaskFolders(in: benchmarkDirectory.url)[index]
+        await updateTaskStatus(.running, at: index)
+//            if let suggestion = await getCodeSuggestionFromService(at: taskPath, from: benchmarkDirectory.url) {
+        if let openAIKey = openAIKey,
+           let suggestion = await getCodeSuggestionFromOpenAI(at: taskPath, from: benchmarkDirectory.url, key: openAIKey) {
+            await applyCodeSuggestion(suggestion: suggestion.suggestion, at: suggestion.fileURL)
+            await storeContentInOutputDirectory(suggestion, for: index+1, in: benchmarkDirectory)
+            await updateTaskStatus(.success, at: index)
+        } else {
+            await updateTaskStatus(.failure, at: index)
+        }
+        await cleanUp()
+    }
+    
+    func getCodeSuggestionFromOpenAI(at directory: URL, from benchmarkDirectory: URL, key: String) async -> SuggestionResponse? {
         guard let metadata: MetadataDTO = readMetadata(at: directory),
               let xcodeWorkspaceFileURL = findXcodeWorkspace(in: benchmarkDirectory),
               let workspace = try? await workspacePool.fetchOrCreateWorkspace(workspaceURL: xcodeWorkspaceFileURL)
@@ -191,7 +213,7 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
             relevantCodeSnippets: relevantSymbols.mapToRelevantCodeSnippets()
         )
         let workspaceInfo = WorkspaceInfo(workspaceURL: xcodeWorkspaceFileURL, projectURL: benchmarkDirectory)
-        let repository = OpenAICompletionRepository(config: .init())
+        let repository = OpenAICompletionRepository(config: .init(apiKey: key))
         do {
             // only works when setting document version GitHubCopilotService to 0
             let suggestion = try await repository.structuredEdit(for: suggestionRequest)
@@ -597,6 +619,7 @@ enum TaskStatus {
     case failure
     case notStarted
     case running
+    case scheduled
 }
 
 
@@ -668,7 +691,7 @@ public struct OpenAICompletionRepository: CodeCompletionRepository, Sendable {
         public var baseURL: URL
 
         public init(
-            apiKey: String = "",
+            apiKey: String,
             model: String = "gpt-4o-mini",
             organization: String? = nil,
             baseURL: URL = URL(string: "https://api.openai.com/v1")!

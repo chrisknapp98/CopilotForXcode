@@ -46,4 +46,8 @@ class BenchmarkViewModel: ObservableObject {
             toast.toast(content: "Failed deleting directory.", level: .error)
         }
     }
+    
+    func runTask(index: Int, in directory: BenchmarkDirectory) async {
+        await benchmarkManager.runTask(at: index, in: directory)
+    }
 }
