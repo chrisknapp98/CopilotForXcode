@@ -130,7 +130,8 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
             return .init(
                 suggestion: firstSuggestion,
                 fileURL: entrypoint.fileURL,
-                relevantSymbolsFromRequest: relevantSymbols
+                relevantSymbolsFromRequest: relevantSymbols,
+                model: selectedGenAIModelSubject.value
             )
         } catch {
             print("CK \(error)")
@@ -240,7 +241,8 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
                     )
                 ),
                 fileURL: entrypoint.fileURL,
-                relevantSymbolsFromRequest: relevantSymbols
+                relevantSymbolsFromRequest: relevantSymbols,
+                model: selectedGenAIModelSubject.value
             )
         } catch {
             print("CK \(error)")
@@ -536,6 +538,7 @@ struct SuggestionResponse {
     let suggestion: SuggestionBasic.CodeSuggestion
     let fileURL: URL
     let relevantSymbolsFromRequest: [SymbolContent]
+    let model: GenAILanguageModel
 }
 
 
@@ -561,6 +564,7 @@ struct StoredSuggestionDTO: Codable {
     let range: CursorRangeDTO
     let createdAt: String
     let relevantSymbols: [RelevantSymbolsDTO]
+    let model: String
     
     struct CursorPositionDTO: Codable {
         let line: Int
@@ -603,7 +607,8 @@ extension SuggestionResponse {
                 )
             ),
             createdAt: timestamp,
-            relevantSymbols: relevantSymbolsFromRequest.map { $0.toStoredDTO() }
+            relevantSymbols: relevantSymbolsFromRequest.map { $0.toStoredDTO() },
+            model: model.id
         )
     }
 }
@@ -978,7 +983,11 @@ public struct CodeEdit: Codable, Sendable {
 }
 
 extension CodeEdit {
-    func mapToSuggestionResponse(fileURL: URL, relevantSymbolsFromRequest: [SymbolContent]) -> SuggestionResponse {
+    func mapToSuggestionResponse(
+        fileURL: URL,
+        relevantSymbolsFromRequest: [SymbolContent],
+        model: GenAILanguageModel
+    ) -> SuggestionResponse {
         let start = range.start
         let end = range.end
         let range = SuggestionBasic.CursorRange(
@@ -997,7 +1006,8 @@ extension CodeEdit {
                 range: range
             ),
             fileURL: fileURL,
-            relevantSymbolsFromRequest: relevantSymbolsFromRequest
+            relevantSymbolsFromRequest: relevantSymbolsFromRequest,
+            model: model
         )
     }
 }
