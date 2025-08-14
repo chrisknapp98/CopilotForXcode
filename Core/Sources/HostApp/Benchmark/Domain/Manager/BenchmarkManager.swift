@@ -645,11 +645,6 @@ public struct CompletionSuggestion: Sendable {
 // MARK: - Protocol
 
 public protocol CodeCompletionRepository: Sendable {
-    /// Non-streaming variant that returns a single suggestion string.
-//    func suggestion(
-//        for request: SuggestionRequest
-//    ) async throws -> CompletionSuggestion
-    
     func structuredEdit(for request: SuggestionRequest) async throws -> CodeEdit
 }
 
@@ -685,6 +680,8 @@ public struct OpenAICompletionRepository: CodeCompletionRepository, Sendable {
         }
     }
 
+    struct JSONOnly: Encodable { let type: String = "json_object" }
+
     private let config: Config
     private let urlSession: URLSession
 
@@ -693,131 +690,6 @@ public struct OpenAICompletionRepository: CodeCompletionRepository, Sendable {
         self.urlSession = session
     }
 
-    // MARK: Public API
-
-//    public func suggestion(for request: SuggestionRequest) async throws -> CompletionSuggestion {
-//        let url = config.baseURL.appendingPathComponent("chat/completions")
-//        var req = URLRequest(url: url)
-//        req.httpMethod = "POST"
-//        req.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
-//        if let org = config.organization { req.setValue(org, forHTTPHeaderField: "OpenAI-Organization") }
-//        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-//
-//        let payload = ChatPayload(
-//            model: config.model,
-//            messages: buildMessages(from: request),
-//            temperature: 0,
-//            stream: false,
-//            response_format: nil  // No structured output requested
-//        )
-//        req.httpBody = try JSONEncoder().encode(payload)
-//
-//        let (data, resp) = try await urlSession.data(for: req)
-//        guard let http = resp as? HTTPURLResponse else { throw OpenAIError.decoding }
-//        guard 200..<300 ~= http.statusCode else {
-//            let body = String(data: data, encoding: .utf8) ?? "<non-utf8>"
-//            throw OpenAIError.badResponse(status: http.statusCode, body: body)
-//        }
-//
-//        let decoded = try JSONDecoder().decode(ChatResponse.self, from: data)
-//        guard let choice = decoded.choices.first else { throw OpenAIError.emptyChoice }
-//        return CompletionSuggestion(
-//            insertText: choice.message.content ?? "",
-//            finishReason: choice.finishReason
-//        )
-//    }
-
-    // MARK: - Prompt construction
-
-    /// Builds a strict prompt that returns only the code to insert at <CURSOR>.
-    private func buildMessages(from req: SuggestionRequest) -> [ChatMessage] {
-        let indentDescriptor: String = {
-            if req.usesTabsForIndentation { return "tabs=\(req.tabSize)" }
-            return "spaces=\(req.indentSize)"
-        }()
-
-        // Surrounding context (prefix/suffix) based on cursorOffset
-        let before = String(req.content.prefix(req.cursorOffset))
-        let after = String(req.content.suffix(max(0, req.content.count - req.cursorOffset)))
-
-        // Include some relevant separate snippets (e.g., related files / symbols)
-        let related = req.relevantCodeSnippets.map { s in
-            """
-            PATH: \(s.path)
-            LANG: \(s.language ?? "unknown")
-            ----
-            \(s.code)
-            """
-        }.joined(separator: "\n\n========\n\n")
-
-        let system = ChatMessage(
-            role: "system",
-            content:
-"""
-You are a **code completion engine** integrated into Xcode IDE.
-- The user sends source code with a <CURSOR> marker or with BEFORE/AFTER sections.
-- Return **only** the code to insert at the cursor. **No prose, no fences, no echo**.
-- Respect indentation (\(indentDescriptor)).
-- Prefer short, compilable, context-aware continuations.
-- Do not duplicate text already present in AFTER.
-"""
-        )
-
-        let user = ChatMessage(
-            role: "user",
-            content:
-"""
-FILE: \(req.relativePath)
-
-BEFORE:
-«««
-\(before)
-»»»
-
-< CURSOR >
-
-AFTER:
-«««
-\(after)
-»»»
-
-RELEVANT CONTEXT (optional sections across the workspace):
-«««
-\(related)
-»»»
-
-Constraints:
-- Output must be only the inserted code (no explanations).
-- No changes can be made in RELEVANT CONTEXT.
-- Do not repeat characters from AFTER.
-- Keep indentation/style consistent with BEFORE.
-"""
-        )
-
-        return [system, user]
-    }
-
-    // MARK: - SSE parsing
-
-    private func parseDeltaChunk(jsonLine: String) throws -> String? {
-        // Matches OpenAI stream schema for chat.completions:
-        // { "id": "...","choices":[{"delta":{"content":"..."},"finish_reason":null,...}], ... }
-        struct StreamEnvelope: Decodable {
-            struct Choice: Decodable {
-                struct Delta: Decodable { let content: String? }
-                let delta: Delta
-            }
-            let choices: [Choice]
-        }
-        let data = Data(jsonLine.utf8)
-        let env = try JSONDecoder().decode(StreamEnvelope.self, from: data)
-        return env.choices.first?.delta.content
-    }
-}
-
-public extension OpenAICompletionRepository {
-
-    struct JSONOnly: Encodable { let type: String = "json_object" }
 
     public func structuredEdit(for request: SuggestionRequest) async throws -> CodeEdit {
         var urlRequest = URLRequest(url: config.baseURL.appendingPathComponent("chat/completions"))
@@ -1116,11 +988,5 @@ extension CodeEdit {
                 end: .init(line: end.line, character: end.character)
             )
         )
-    }
-}
-
-struct Greeter {
-    func greet() {
-        print("Hello")
     }
 }
