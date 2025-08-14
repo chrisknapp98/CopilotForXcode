@@ -10,6 +10,12 @@ class BenchmarkViewModel: ObservableObject {
         }
     }
     @Published private(set) var taskStates: [TaskStatus] = []
+    @Published var selectedLanguageModel: GenAILanguageModel = .defaultModel {
+        didSet {
+            guard oldValue != selectedLanguageModel else { return }
+            Task { await benchmarkManager.changeGenAIModel(to: selectedLanguageModel) }
+        }
+    }
     
     private let benchmarkSettingsRepository: BenchmarkSettingsRepository
     private let benchmarkManager: RealtimeSuggestionControllerBenchmarkManager
@@ -23,6 +29,9 @@ class BenchmarkViewModel: ObservableObject {
             .assign(to: \.isMultiFileContextEnabled, on: self)
             .store(in: &cancellables)
         benchmarkManager.taskStates.assign(to: \.taskStates, on: self).store(in: &cancellables)
+        benchmarkManager.selectedGenAIModel
+            .assign(to: \.selectedLanguageModel, on: self)
+            .store(in: &cancellables)
     }
     
     func loadBenchmarkDirectories() {

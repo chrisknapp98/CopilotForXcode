@@ -20,6 +20,11 @@ struct BenchmarkView: View {
                             .font(.title)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         Toggle("Multi File Context Enabled", isOn: $viewModel.isMultiFileContextEnabled)
+                        Picker("Language Model: ", selection: $viewModel.selectedLanguageModel) {
+                            ForEach(GenAILanguageModel.allCases, id: \.self) { model in
+                                Text(model.name).tag(model)
+                            }
+                        }
                         ConfigurationButtonView(module: module)
                     }
                     .padding(.vertical)

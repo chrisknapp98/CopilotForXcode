@@ -35,6 +35,10 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
         taskStatesSubject.eraseToAnyPublisher()
     }
     private var openAIKey: String?
+    private let selectedGenAIModelSubject = CurrentValueSubject<GenAILanguageModel, Never>(.defaultModel)
+    var selectedGenAIModel: AnyPublisher<GenAILanguageModel, Never> {
+        selectedGenAIModelSubject.eraseToAnyPublisher()
+    }
     private var cancellables = Set<AnyCancellable>()
     
     init(benchmarkSettingsRepository: BenchmarkSettingsRepository) {
@@ -166,9 +170,19 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
     func runTask(at index: Int, in benchmarkDirectory: BenchmarkDirectory) async {
         let taskPath = getTaskFolders(in: benchmarkDirectory.url)[index]
         await updateTaskStatus(.running, at: index)
-//            if let suggestion = await getCodeSuggestionFromService(at: taskPath, from: benchmarkDirectory.url) {
-        if let openAIKey = openAIKey,
-           let suggestion = await getCodeSuggestionFromOpenAI(at: taskPath, from: benchmarkDirectory.url, key: openAIKey) {
+        if case .githubCopilot = selectedGenAIModelSubject.value,
+           let suggestion = await getCodeSuggestionFromService(at: taskPath, from: benchmarkDirectory.url) {
+            await applyCodeSuggestion(suggestion: suggestion.suggestion, at: suggestion.fileURL)
+            await storeContentInOutputDirectory(suggestion, for: index+1, in: benchmarkDirectory)
+            await updateTaskStatus(.success, at: index)
+        } else if let openAIKey = openAIKey,
+           case let .openAI(model) = selectedGenAIModelSubject.value,
+           let suggestion = await getCodeSuggestionFromOpenAI(
+            at: taskPath,
+            from: benchmarkDirectory.url,
+            key: openAIKey,
+            model: model.rawValue
+           ) {
             await applyCodeSuggestion(suggestion: suggestion.suggestion, at: suggestion.fileURL)
             await storeContentInOutputDirectory(suggestion, for: index+1, in: benchmarkDirectory)
             await updateTaskStatus(.success, at: index)
@@ -178,7 +192,7 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
         await cleanUp()
     }
     
-    func getCodeSuggestionFromOpenAI(at directory: URL, from benchmarkDirectory: URL, key: String) async -> SuggestionResponse? {
+    func getCodeSuggestionFromOpenAI(at directory: URL, from benchmarkDirectory: URL, key: String, model: String) async -> SuggestionResponse? {
         guard let metadata: MetadataDTO = readMetadata(at: directory),
               let xcodeWorkspaceFileURL = findXcodeWorkspace(in: benchmarkDirectory),
               let workspace = try? await workspacePool.fetchOrCreateWorkspace(workspaceURL: xcodeWorkspaceFileURL)
@@ -213,7 +227,7 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
             relevantCodeSnippets: relevantSymbols.mapToRelevantCodeSnippets()
         )
         let workspaceInfo = WorkspaceInfo(workspaceURL: xcodeWorkspaceFileURL, projectURL: benchmarkDirectory)
-        let repository = OpenAICompletionRepository(config: .init(apiKey: key))
+        let repository = OpenAICompletionRepository(config: .init(apiKey: key, model: model))
         do {
             // only works when setting document version GitHubCopilotService to 0
             let suggestion = try await repository.structuredEdit(for: suggestionRequest)
@@ -413,6 +427,11 @@ class RealtimeSuggestionControllerBenchmarkManager: BenchmarkManager {
         }
 
         return nil
+    }
+    
+    @MainActor
+    func changeGenAIModel(to newModel: GenAILanguageModel) {
+        selectedGenAIModelSubject.send(newModel)
     }
     
     @MainActor
@@ -692,7 +711,7 @@ public struct OpenAICompletionRepository: CodeCompletionRepository, Sendable {
 
         public init(
             apiKey: String,
-            model: String = "gpt-4o-mini",
+            model: String,
             organization: String? = nil,
             baseURL: URL = URL(string: "https://api.openai.com/v1")!
         ) {
@@ -1011,5 +1030,44 @@ extension CodeEdit {
                 end: .init(line: end.line, character: end.character)
             )
         )
+    }
+}
+
+enum GenAILanguageModel: Hashable, CaseIterable, Identifiable {
+    case githubCopilot
+    case openAI(OpenAIModel)
+
+    static var allCases: [GenAILanguageModel] {
+        [.githubCopilot] + OpenAIModel.allCases.map { .openAI($0) }
+    }
+
+    var id: String {
+        switch self {
+        case .githubCopilot: return "githubCopilot"
+        case .openAI(let m): return "openAI:\(m.rawValue)"
+        }
+    }
+
+    var name: String {
+        switch self {
+        case .githubCopilot: return "GitHub Copilot"
+        case .openAI(let m): return m.displayName
+        }
+    }
+
+    static let defaultModel: GenAILanguageModel = .githubCopilot
+}
+
+enum OpenAIModel: String, CaseIterable, Hashable {
+    case gpt4oMini = "gpt-4o-mini"
+    case gpt4o     = "gpt-4o"
+    case gpt5      = "gpt-5"
+
+    var displayName: String {
+        switch self {
+        case .gpt4oMini: return "GPT-4o mini"
+        case .gpt4o:     return "GPT-4o"
+        case .gpt5:      return "GPT-5"
+        }
     }
 }
