@@ -25,9 +25,16 @@ class BenchmarkModule: BenchmarkModuleType {
         }
     }
     
+    private func component() -> BenchmarkManager {
+        MultiFileContextBenchmarkManager(
+            benchmarkSettingsRepository: component()
+        )
+    }
+    
     func provide() -> BenchmarkViewModel {
         BenchmarkViewModel(
-            benchmarkSettingsRepository: component()
+            benchmarkSettingsRepository: component(),
+            benchmarkManager: component()
         )
     }
     

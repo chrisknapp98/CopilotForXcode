@@ -18,13 +18,16 @@ class BenchmarkViewModel: ObservableObject {
     }
     
     private let benchmarkSettingsRepository: BenchmarkSettingsRepository
-    private let benchmarkManager: RealtimeSuggestionControllerBenchmarkManager
+    private let benchmarkManager: BenchmarkManager
     private var cancellables = Set<AnyCancellable>()
     private var toast: ToastController { ToastControllerDependencyKey.liveValue }
     
-    init(benchmarkSettingsRepository: BenchmarkSettingsRepository) {
+    init(
+        benchmarkSettingsRepository: BenchmarkSettingsRepository,
+        benchmarkManager: BenchmarkManager
+    ) {
         self.benchmarkSettingsRepository = benchmarkSettingsRepository
-        self.benchmarkManager = RealtimeSuggestionControllerBenchmarkManager(benchmarkSettingsRepository: benchmarkSettingsRepository)
+        self.benchmarkManager = benchmarkManager
         benchmarkManager.isMultiFileEnabled
             .assign(to: \.isMultiFileContextEnabled, on: self)
             .store(in: &cancellables)
