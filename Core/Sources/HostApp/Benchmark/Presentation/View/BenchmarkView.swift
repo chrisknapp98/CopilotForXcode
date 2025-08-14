@@ -76,7 +76,7 @@ struct BenchmarkView: View {
 //                .font(.headline)
             LazyVStack(alignment: .leading, spacing: 8) {
                 ForEach(Array(viewModel.taskStates.enumerated()), id: \.offset) { index, taskStatus in
-                    HStack {
+                    HStack(spacing: 20) {
                         Button {
                             Task {
                                 await viewModel.runTask(index: index, in: directory)
