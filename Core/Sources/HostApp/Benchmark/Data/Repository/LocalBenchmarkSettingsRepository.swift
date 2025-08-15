@@ -36,7 +36,7 @@ class LocalBenchmarkSettingsRepository: BenchmarkSettingsRepository {
             benchmarkOutputDirectory.send(outputDirectory)
         }
         if let openAIKey = try? loadOpenAIKey() {
-            currentOpenAIKey.send("")
+            currentOpenAIKey.send(openAIKey)
         }
     }
     
