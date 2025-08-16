@@ -67,7 +67,7 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         let taskPaths: [URL] = getTaskFolders(in: benchmarkDirectory.url)
         let initialTaskStates = taskPaths.map { _ in TaskStatus.scheduled }
         await updateTaskStates(in: benchmarkDirectory, newValue: initialTaskStates)
-        for (index, _) in taskPaths.prefix(1).enumerated() {
+        for (index, _) in taskPaths.enumerated() {
             await runTask(at: index, in: benchmarkDirectory)
             try await Task.sleep(nanoseconds: 3_000_000_000)
         }
