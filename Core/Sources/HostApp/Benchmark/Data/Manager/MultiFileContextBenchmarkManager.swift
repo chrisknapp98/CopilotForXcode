@@ -81,8 +81,10 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         let entrypoint = metadata.mapToEntrypoint(prefixing: benchmarkDirectory.path)
         let content: String = (try? String(contentsOf: entrypoint.fileURL, encoding: .utf8)) ?? ""
         
-        let relevantSymbols: [SymbolContent] = await retrieveRelevantSymbolsForFileContent(content: content, workspace: workspace)
-        
+        let relevantSymbols: [SymbolContent] = await retrieveRelevantSymbolsForFileContent(
+            file: FileContent(fileURL: entrypoint.fileURL.path, content: content),
+            workspace: workspace
+        )
         let suggestionRequest = SuggestionProvider.SuggestionRequest(
             fileURL: entrypoint.fileURL,
             relativePath: entrypoint.fileURL.path.replacingOccurrences(of: benchmarkDirectory.path, with: ""),
@@ -176,7 +178,10 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         let entrypoint = metadata.mapToEntrypoint(prefixing: benchmarkDirectory.path)
         let content: String = (try? String(contentsOf: entrypoint.fileURL, encoding: .utf8)) ?? ""
         
-        let relevantSymbols: [SymbolContent] = await retrieveRelevantSymbolsForFileContent(content: content, workspace: workspace)
+        let relevantSymbols: [SymbolContent] = await retrieveRelevantSymbolsForFileContent(
+            file: FileContent(fileURL: entrypoint.fileURL.path, content: content),
+            workspace: workspace
+        )
         let limitedRelevantSymbols = Array(relevantSymbols.prefix(10))
         
         let suggestionRequest = SuggestionRequest(
@@ -212,13 +217,13 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         }
     }
     
-    private func retrieveRelevantSymbolsForFileContent(content: String, workspace: Workspace) async -> [SymbolContent] {
+    private func retrieveRelevantSymbolsForFileContent(file: FileContent, workspace: Workspace) async -> [SymbolContent] {
         let multiFileContextManager = MultiFileContextManager(
             workspaceProvider: ManualWorkspaceProvider(workspace: workspace),
             parser: SwiftProgrammingLanguageSyntaxParser()
         )
         if isMultiFileEnabledSubject.value {
-            let symbols = await multiFileContextManager.retrieveRelevantSymbolsForFileContent(content: content)
+            let symbols = await multiFileContextManager.retrieveRelevantSymbolsForFileContent(file: file, ignoreWithinPaths: ["/Benchmark/"])
             return Array(symbols.values)
         } else {
             return []
