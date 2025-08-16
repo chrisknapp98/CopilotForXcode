@@ -6,21 +6,12 @@ struct DirectoryNameView: View {
     @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
-        Text(isPressed ? directory.url.path : directory.name)
-            .foregroundStyle(isPressed ? Color.gray : colorScheme == .dark ? Color.white : Color.black)
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged({ _ in
-                        withAnimation {
-                            isPressed = true
-                        }
-                    })
-                    .onEnded({ _ in
-                        withAnimation {
-                            isPressed = false
-                        }
-                    })
-            )
-            .animation(.easeInOut(duration: 0.2), value: isPressed)
+        VStack(alignment: .leading, spacing: 5) {
+            Text(directory.name)
+            
+            Text(directory.url.path)
+                .font(.subheadline)
+                .foregroundStyle(Color.gray)
+        }
     }
 }
