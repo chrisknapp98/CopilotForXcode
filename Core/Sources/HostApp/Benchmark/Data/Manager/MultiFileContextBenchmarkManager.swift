@@ -81,18 +81,7 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         let entrypoint = metadata.mapToEntrypoint(prefixing: benchmarkDirectory.path)
         let content: String = (try? String(contentsOf: entrypoint.fileURL, encoding: .utf8)) ?? ""
         
-        let multiFileContextManager = MultiFileContextManager(
-            workspaceProvider: ManualWorkspaceProvider(workspace: workspace),
-            parser: SwiftProgrammingLanguageSyntaxParser()
-        )
-        let relevantSymbols: [SymbolContent] = await {
-            if isMultiFileEnabledSubject.value {
-                let symbols = await multiFileContextManager.retrieveRelevantSymbolsForFileContent(content: content)
-                return Array(symbols.values)
-            } else {
-                return []
-            }
-        }()
+        let relevantSymbols: [SymbolContent] = await retrieveRelevantSymbolsForFileContent(content: content, workspace: workspace)
         
         let suggestionRequest = SuggestionProvider.SuggestionRequest(
             fileURL: entrypoint.fileURL,
@@ -187,18 +176,8 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         let entrypoint = metadata.mapToEntrypoint(prefixing: benchmarkDirectory.path)
         let content: String = (try? String(contentsOf: entrypoint.fileURL, encoding: .utf8)) ?? ""
         
-        let multiFileContextManager = MultiFileContextManager(
-            workspaceProvider: ManualWorkspaceProvider(workspace: workspace),
-            parser: SwiftProgrammingLanguageSyntaxParser()
-        )
-        let relevantSymbols: [SymbolContent] = await {
-            if isMultiFileEnabledSubject.value {
-                let symbols = await multiFileContextManager.retrieveRelevantSymbolsForFileContent(content: content)
-                return Array(symbols.values)
-            } else {
-                return []
-            }
-        }()
+        let relevantSymbols: [SymbolContent] = await retrieveRelevantSymbolsForFileContent(content: content, workspace: workspace)
+        let limitedRelevantSymbols = Array(relevantSymbols.prefix(10))
         
         let suggestionRequest = SuggestionRequest(
             fileURL: entrypoint.fileURL,
@@ -211,13 +190,11 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
             tabSize: 4,
             indentSize: 4,
             usesTabsForIndentation: false,
-            relevantCodeSnippets: relevantSymbols.mapToRelevantCodeSnippets()
+            relevantCodeSnippets: limitedRelevantSymbols.mapToRelevantCodeSnippets()
         )
         let repository = OpenAICompletionRepository(config: .init(apiKey: key, model: model))
         do {
-            // only works when setting document version GitHubCopilotService to 0
             let suggestion = try await repository.structuredEdit(for: suggestionRequest)
-//            let suggestions: [SuggestionBasic.CodeSuggestion]? = [exampleSuggestion]
             return .init(
                 suggestion: suggestion.mapToCodeSuggestion(
                     requestPosition: SuggestionRequest.CursorPosition(
@@ -232,6 +209,19 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         } catch {
             print("CK \(error)")
             return nil
+        }
+    }
+    
+    private func retrieveRelevantSymbolsForFileContent(content: String, workspace: Workspace) async -> [SymbolContent] {
+        let multiFileContextManager = MultiFileContextManager(
+            workspaceProvider: ManualWorkspaceProvider(workspace: workspace),
+            parser: SwiftProgrammingLanguageSyntaxParser()
+        )
+        if isMultiFileEnabledSubject.value {
+            let symbols = await multiFileContextManager.retrieveRelevantSymbolsForFileContent(content: content)
+            return Array(symbols.values)
+        } else {
+            return []
         }
     }
     
