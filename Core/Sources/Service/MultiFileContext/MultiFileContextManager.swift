@@ -70,7 +70,7 @@ public class MultiFileContextManager {
         var relevantSymbols: [String: SymbolContent] = [:]
 
         for (symbolName, symbolContent) in allSymbols {
-            if file.content.contains(symbolName) {
+            if file.content.containsExactIdentifier(symbolName) {
                 relevantSymbols[symbolName] = symbolContent
             }
         }
@@ -109,4 +109,29 @@ public class MultiFileContextManager {
         }
     }
     
+}
+
+extension String {
+    /// Allow any character besides letters, numbers, and underscores as boundaries
+    func containsExactIdentifier(_ name: String) -> Bool {
+        guard !name.isEmpty else { return false }
+
+        @inline(__always)
+        func isIdentChar(_ c: Character) -> Bool { c.isLetter || c.isNumber || c == "_" }
+
+        var search = startIndex..<endIndex
+        while let range = self.range(of: name, options: .literal, range: search) {
+            let before = (range.lowerBound == startIndex) ? nil : self[index(before: range.lowerBound)]
+            let after  = (range.upperBound == endIndex)   ? nil : self[range.upperBound]
+
+            let boundaryBefore = before.map { !isIdentChar($0) } ?? true
+            let boundaryAfter  = after.map  { !isIdentChar($0) } ?? true
+
+            if boundaryBefore && boundaryAfter {
+                return true
+            }
+            search = range.upperBound..<endIndex
+        }
+        return false
+    }
 }
