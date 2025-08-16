@@ -20,8 +20,8 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
     var isMultiFileEnabled: AnyPublisher<Bool, Never> {
         isMultiFileEnabledSubject.eraseToAnyPublisher()
     }
-    private let taskStatesSubject = CurrentValueSubject<[TaskStatus], Never>([])
-    var taskStates: AnyPublisher<[TaskStatus], Never> {
+    private let taskStatesSubject = CurrentValueSubject<[BenchmarkDirectory: [TaskStatus]], Never>([:])
+    var taskStates: AnyPublisher<[BenchmarkDirectory: [TaskStatus]], Never> {
         taskStatesSubject.eraseToAnyPublisher()
     }
     private var openAIKey: String?
@@ -54,7 +54,7 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
                     return
                 }
                 let initialTaskStates = taskPaths.map { _ in TaskStatus.notStarted }
-                Task { await self?.updateTaskStates(initialTaskStates) }
+                Task { await self?.updateTaskStates(in: directory, newValue: initialTaskStates) }
             }
         }.store(in: &cancellables)
         
@@ -66,7 +66,7 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
     func getCodeSuggestions(at benchmarkDirectory: BenchmarkDirectory) async throws {
         let taskPaths: [URL] = getTaskFolders(in: benchmarkDirectory.url)
         let initialTaskStates = taskPaths.map { _ in TaskStatus.scheduled }
-        await updateTaskStates(initialTaskStates)
+        await updateTaskStates(in: benchmarkDirectory, newValue: initialTaskStates)
         for (index, _) in taskPaths.prefix(1).enumerated() {
             await runTask(at: index, in: benchmarkDirectory)
             try await Task.sleep(nanoseconds: 3_000_000_000)
@@ -156,12 +156,12 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
     
     func runTask(at index: Int, in benchmarkDirectory: BenchmarkDirectory) async {
         let taskPath = getTaskFolders(in: benchmarkDirectory.url)[index]
-        await updateTaskStatus(.running, at: index)
+        await updateTaskStatus(in: benchmarkDirectory, state: .running, at: index)
         if case .githubCopilot = selectedGenAIModelSubject.value,
            let suggestion = await getCodeSuggestionFromService(at: taskPath, from: benchmarkDirectory.url) {
             await applyCodeSuggestion(suggestion: suggestion.suggestion, at: suggestion.fileURL)
             await storeContentInOutputDirectory(suggestion, for: index+1, in: benchmarkDirectory)
-            await updateTaskStatus(.success, at: index)
+            await updateTaskStatus(in: benchmarkDirectory, state: .success, at: index)
         } else if let openAIKey = openAIKey,
            case let .openAI(model) = selectedGenAIModelSubject.value,
            let suggestion = await getCodeSuggestionFromOpenAI(
@@ -172,9 +172,9 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
            ) {
             await applyCodeSuggestion(suggestion: suggestion.suggestion, at: suggestion.fileURL)
             await storeContentInOutputDirectory(suggestion, for: index+1, in: benchmarkDirectory)
-            await updateTaskStatus(.success, at: index)
+            await updateTaskStatus(in: benchmarkDirectory, state: .success, at: index)
         } else {
-            await updateTaskStatus(.failure, at: index)
+            await updateTaskStatus(in: benchmarkDirectory, state: .failure, at: index)
         }
         await cleanUp()
     }
@@ -427,15 +427,19 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
     }
     
     @MainActor
-    private func updateTaskStates(_ newValue: [TaskStatus]) {
-        taskStatesSubject.send(newValue)
+    private func updateTaskStates(in directory: BenchmarkDirectory, newValue: [TaskStatus]) {
+        var currentStates = taskStatesSubject.value
+        currentStates[directory] = newValue
+        taskStatesSubject.send(currentStates)
     }
     
     @MainActor
-    private func updateTaskStatus(_ newValue: TaskStatus, at index: Int) {
-        var updatedValue = taskStatesSubject.value
-        updatedValue[index] = newValue
-        taskStatesSubject.send(updatedValue)
+    private func updateTaskStatus(in directory: BenchmarkDirectory, state: TaskStatus, at index: Int) {
+        var currentStates = taskStatesSubject.value
+        guard var currentStatesInDirectory = currentStates[directory] else { return }
+        currentStatesInDirectory[index] = state
+        currentStates[directory] = currentStatesInDirectory
+        taskStatesSubject.send(currentStates)
     }
 }
 

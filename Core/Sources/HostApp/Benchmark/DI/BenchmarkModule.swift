@@ -1,11 +1,13 @@
 protocol BenchmarkModuleType {
     func provide() -> BenchmarkViewModel
+    func provide(directory: BenchmarkDirectory) -> BenchmarkDirectoryEntryViewModel
     func provide() -> ConfigurationViewModel
     func provide() -> AddDirectoryViewModel
 }
 
 class BenchmarkModule: BenchmarkModuleType {
     private var benchmarkSettingsRepository: BenchmarkSettingsRepository?
+    private var benchmarkManager: BenchmarkManager?
     
     static let shared: BenchmarkModuleType = BenchmarkModule()
     
@@ -26,13 +28,27 @@ class BenchmarkModule: BenchmarkModuleType {
     }
     
     private func component() -> BenchmarkManager {
-        MultiFileContextBenchmarkManager(
-            benchmarkSettingsRepository: component()
-        )
+        if let manager = benchmarkManager {
+            return manager
+        } else {
+            let manager = MultiFileContextBenchmarkManager(
+                benchmarkSettingsRepository: component()
+            )
+            benchmarkManager = manager
+            return manager
+        }
     }
     
     func provide() -> BenchmarkViewModel {
         BenchmarkViewModel(
+            benchmarkSettingsRepository: component(),
+            benchmarkManager: component()
+        )
+    }
+    
+    func provide(directory: BenchmarkDirectory) -> BenchmarkDirectoryEntryViewModel {
+        BenchmarkDirectoryEntryViewModel(
+            directory: directory,
             benchmarkSettingsRepository: component(),
             benchmarkManager: component()
         )

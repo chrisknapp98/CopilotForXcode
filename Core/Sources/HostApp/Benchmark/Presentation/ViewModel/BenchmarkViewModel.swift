@@ -9,7 +9,7 @@ class BenchmarkViewModel: ObservableObject {
             Task { await benchmarkManager.updateMultiFileContextState(isMultiFileContextEnabled) }
         }
     }
-    @Published private(set) var taskStates: [TaskStatus] = []
+    @Published private(set) var taskStates: [BenchmarkDirectory: [TaskStatus]] = [:]
     @Published var selectedLanguageModel: GenAILanguageModel = .defaultModel {
         didSet {
             guard oldValue != selectedLanguageModel else { return }
@@ -41,25 +41,5 @@ class BenchmarkViewModel: ObservableObject {
         benchmarkSettingsRepository.benchmarkDirectories
             .assign(to: \.benchmarkDirectories, on: self)
             .store(in: &cancellables)
-    }
-    
-    func runBenchmark(for directory: BenchmarkDirectory) async throws {
-        // TODO: Implement the logic to run the benchmark for the given directory
-        print("Running benchmark for \(directory.url.path)")
-        try await benchmarkManager.getCodeSuggestions(at: directory)
-    }
-    
-    
-    func deleteDirectory(_ directory: BenchmarkDirectory) {
-        do {
-            try benchmarkSettingsRepository.deleteBenchmarkDirectory(directory)
-            toast.toast(content: "Directory deleted successfully.", level: .info)
-        } catch {
-            toast.toast(content: "Failed deleting directory.", level: .error)
-        }
-    }
-    
-    func runTask(index: Int, in directory: BenchmarkDirectory) async {
-        await benchmarkManager.runTask(at: index, in: directory)
     }
 }
