@@ -39,7 +39,7 @@ struct BenchmarkView: View {
                                             try? await viewModel.runBenchmark(for: directory)
                                         }
                                     } label: {
-                                        Image(systemName: "play")
+                                        Label("Run all Tasks", systemImage: "play")
                                     }
                                     Button {
                                         NSWorkspace.shared.open(directory.url)
