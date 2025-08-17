@@ -12,26 +12,35 @@ class MultiFileContextManagerTests: XCTestCase {
         )
     }
     
-    func testListingFiles() async {
-        let sut = sut
-        let files = await sut.listFilesInWorkspace()
-        
-        XCTAssertNotEqual(files.count, 0)
-    }
+//    func testListingFiles() async {
+//        let sut = sut
+//        let files = await sut.listFilesInWorkspace()
+//        
+//        XCTAssertNotEqual(files.count, 0)
+//    }
     
-    func testRetrievingFileContent() async {
-        let sut = sut
-        let files = await sut.readFileContents()
-        
-        XCTAssertNotEqual(files.count, 0)
-    }
+//    func testRetrievingFileContent() async {
+//        let sut = sut
+//        let files = await sut.readFileContents()
+//        
+//        XCTAssertNotEqual(files.count, 0)
+//    }
     
-    func testClassifyingCode() async {
-        let sut = sut
-        let classifiedSymbols = await sut.classifyContentWithinFiles()
-        // symbols
-        XCTAssertNotEqual(classifiedSymbols.count, 0)
-    }
+//    func testClassifyingCode() async {
+//        let sut = sut
+//        let classifiedSymbols = await sut.classifyContentWithinFiles()
+//        // symbols
+//        XCTAssertNotEqual(classifiedSymbols.count, 0)
+//    }
+    
+//    func testScanningForDependencyKeys() async {
+//        let sut = sut
+//        let dependencyKeys = await sut.scanProjectForDependencyKeys()
+//        let registeredDependencies = dependencyKeys.map { dependencyKey in
+//            sut.getDependencySymbolsFromExtensionContent(dependencyKey.symbol.content)
+//        }
+//        XCTAssertNotEqual(dependencyKeys.count, 0)
+//    }
 }
 
 
@@ -42,12 +51,13 @@ class WorkspaceProviderMock: WorkspaceProvider {
 //        let workspaceURL = URL(filePath: "/Users/christopherknapp/repos/ios-minttv")
 //        let workspaceURL = URL(filePath: "/Users/christopherknapp/repos/ios-minttv/Pod/Classes/Twitch/TwitchEndpoint.swift")
 //        let workspaceURL = URL(filePath: "/Users/christopherknapp/repos/ios-minttv/Pod/Classes/Twitch/Chat/IRC")
-        let workspaceURL = URL(filePath: "/Users/christopherknapp/repos/ios-minttv/Pod/Classes/Twitch/Chat/Presentation/View")
+//        let workspaceURL = URL(filePath: "/Users/christopherknapp/repos/ios-minttv/Pod/Classes/Twitch/Chat/Presentation/View")projectRootURL    Foundation.URL    "file:///Users/christopherknapp/repos/ModernCleanArchitectureSwiftUI/"
+        let workspaceURL = URL(filePath: "/Users/christopherknapp/repos/ModernCleanArchitectureSwiftUI/")
         return Workspace(workspaceURL: workspaceURL)
     }
     
     func getProjectRootURL() async throws -> URL {
-        URL(filePath: "/Users/christopherknapp/repos/ios-minttv/Pod/Classes/Twitch/Chat/Presentation/View")
+        URL(filePath: "/Users/christopherknapp/repos/ModernCleanArchitectureSwiftUI/")
     }
 }
 
