@@ -65,25 +65,23 @@ public class MultiFileContextManager {
         file: FileContent,
         ignoreWithinPaths: [String] = []
     ) async -> [String: SymbolContent] {
-        let currentSymbol = parser.parse(file: file)
+        let currentSymbolName = parser.parse(file: file).first?.symbol.name
         let allSymbols = await classifyContentWithinFiles()
-        var relevantSymbols: [String: SymbolContent] = [:]
 
-        for (symbolName, symbolContent) in allSymbols {
-            if file.content.containsExactIdentifier(symbolName) {
-                relevantSymbols[symbolName] = symbolContent
+        var relevant: [String: SymbolContent] = [:]
+
+        for (name, content) in allSymbols {
+            if let current = currentSymbolName, current == name { continue }
+            if ignoreWithinPaths.contains(where: { content.fileURL.contains($0) }) { continue }
+
+            if file.content.containsExactIdentifier(name) {
+                if relevant[name] == nil {
+                    relevant[name] = content
+                }
             }
         }
-        
-        let relevantSymbolsWithoutCurrentSymbol = relevantSymbols.filter { symbolName, symbolContent in
-            if let currentSymbolName = currentSymbol.first?.symbol.name,
-               currentSymbolName == symbolName { return false }
-            
-            let path = symbolContent.fileURL
-            let ignored = ignoreWithinPaths.contains { pathToIgnore in path.contains(pathToIgnore) }
-            return !ignored
-        }
-        return relevantSymbolsWithoutCurrentSymbol
+
+        return relevant
     }
     
     private func mergeExtensionsIntoBaseDeclarations(_ symbols: inout [SymbolContent]) {
