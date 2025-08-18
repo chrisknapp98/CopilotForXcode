@@ -55,7 +55,7 @@ struct OpenAICompletionRepository: CodeCompletionRepository {
         let payload = ChatPayload(
             model: config.model,
             messages: buildMessagesForStructuredEdit(from: request),
-            temperature: 0,
+            temperature: config.model == "gpt-5" ? 1 : 0, // gpt-5 only supports temperature 1
             stream: false,
             response_format: JSONOnly()  // ask for a single JSON object
         )
