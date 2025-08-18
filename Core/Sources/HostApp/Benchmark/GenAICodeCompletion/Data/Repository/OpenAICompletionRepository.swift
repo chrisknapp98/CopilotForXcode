@@ -79,14 +79,36 @@ struct OpenAICompletionRepository: CodeCompletionRepository {
     }
     
     private func removeClosingBraceIfNeeded(suggestion: String, promptCode: String, line: Int) -> String {
-        let lines = suggestion.components(separatedBy: "\n")
-        let promptCodeLines = promptCode.components(separatedBy: "\n")
-        let lineAfterCursor = promptCodeLines[line+1]
-        if lineAfterCursor == lines.last {
-            return lines.dropLast().joined(separator: "\n")
-        } else {
-            return suggestion
+        // Defensive: find the first line AFTER the cursor line
+        let promptLines = promptCode.components(separatedBy: "\n")
+        guard line + 1 < promptLines.count else { return suggestion }
+        let afterFirstLineTrimmed = promptLines[line + 1].trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Work on line array of the suggestion
+        var lines = suggestion.components(separatedBy: "\n")
+
+        // Find the last *non-empty* line (ignoring pure whitespace)
+        var lastNonEmptyIndex: Int?
+        for i in lines.indices.reversed() {
+            if !lines[i].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                lastNonEmptyIndex = i
+                break
+            }
         }
+        guard let idx = lastNonEmptyIndex else { return suggestion } // all whitespace? leave as-is
+
+        let tailTrimmed = lines[idx].trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // If the model echoed the first AFTER line (e.g. a closing brace), drop it
+        if !afterFirstLineTrimmed.isEmpty, tailTrimmed == afterFirstLineTrimmed {
+            // Remove that line and any trailing blank lines after it
+            lines.removeSubrange(idx..<lines.count)
+            // If you want to keep exactly one trailing newline, you can add:
+            // if !lines.isEmpty, !lines.last!.isEmpty { lines.append("") }
+            return lines.joined(separator: "\n")
+        }
+
+        return suggestion
     }
     
     private func detectLanguage(from path: String) -> String {
