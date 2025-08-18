@@ -322,9 +322,13 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
             }
         }
         
-        let timestamp = ISO8601DateFormatter().string(from: Date())
-        let reformattedTimestamp = timestamp.replacingOccurrences(of: ":", with: "-")
-        let outputFileURL = contextFolder.appendingPathComponent("Task-\(taskNumber)-\(reformattedTimestamp).json")
+        let iso = ISO8601DateFormatter()
+        iso.timeZone = .current
+        iso.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime, .withTimeZone]
+
+        let timestamp = iso.string(from: Date())
+        let safe = timestamp.replacingOccurrences(of: ":", with: "-") // filenames: 2025-08-18T21-07-03+02-00
+        let outputFileURL = contextFolder.appendingPathComponent("Task-\(taskNumber)-\(safe).json")
         
         do {
             let dto = suggestion.toStoredDTO(timestamp: timestamp)
