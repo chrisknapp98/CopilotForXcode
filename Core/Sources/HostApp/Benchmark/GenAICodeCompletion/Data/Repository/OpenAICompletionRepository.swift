@@ -35,9 +35,14 @@ struct OpenAICompletionRepository: CodeCompletionRepository {
     private let config: Config
     private let urlSession: URLSession
 
-    init(config: Config, session: URLSession = .shared) {
+    init(config: Config) {
         self.config = config
-        self.urlSession = session
+        
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 300    // 5 minutes
+        configuration.timeoutIntervalForResource = 300   // 5 minutes
+        
+        self.urlSession = URLSession(configuration: configuration)
     }
 
     func structuredEdit(for request: SuggestionRequest) async throws -> CodeEdit {
