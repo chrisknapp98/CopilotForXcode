@@ -131,7 +131,8 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
     
     private func openFilespaces(entrypoint: EntryPoint, relevantSymbols: [SymbolContent], in workspace: Workspace) async {
         for symbol in relevantSymbols {
-            if let filespace = try? await workspace.createFilespaceIfNeeded(fileURL: URL(fileURLWithPath: symbol.fileURL)) {
+            if let fileURL = symbol.fileURL.toFileURL(),
+               let filespace = try? await workspace.createFilespaceIfNeeded(fileURL: fileURL) {
                 await workspace.didOpenFilespace(filespace)
             }
         }
@@ -142,7 +143,9 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
     
     private func closeFilespaces(entrypoint: EntryPoint, relevantSymbols: [SymbolContent], in workspace: Workspace) async {
         for symbol in relevantSymbols {
-            await workspace.didCloseFilespace(URL(fileURLWithPath: symbol.fileURL))
+            if let fileURL = symbol.fileURL.toFileURL() {
+                await workspace.didCloseFilespace(fileURL)
+            }
         }
         await workspace.didCloseFilespace(entrypoint.fileURL)
     }
@@ -589,5 +592,11 @@ extension CodeEdit {
                 end: .init(line: end.line, character: end.character)
             )
         )
+    }
+}
+
+extension String {
+    func toFileURL() -> URL? {
+        hasPrefix("file://") ? URL(string: self) : URL(fileURLWithPath: self)
     }
 }
