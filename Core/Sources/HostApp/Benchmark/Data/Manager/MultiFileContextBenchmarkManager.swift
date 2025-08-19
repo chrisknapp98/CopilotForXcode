@@ -36,15 +36,6 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         BuiltinExtensionManager.shared.setupExtensions([
             GitHubCopilotExtension(workspacePool: workspacePool)
         ])
-        workspacePool.registerPlugin {
-            SuggestionServiceWorkspacePlugin(workspace: $0) { SuggestionService.service() }
-        }
-        workspacePool.registerPlugin {
-            GitHubCopilotWorkspacePlugin(workspace: $0)
-        }
-        workspacePool.registerPlugin {
-            BuiltinExtensionWorkspacePlugin(workspace: $0)
-        }
         self.workspacePool = workspacePool
         self.benchmarkSettingsRepository = benchmarkSettingsRepository
         
@@ -61,6 +52,27 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         benchmarkSettingsRepository.openAIKey.sink { [weak self] key in
             self?.openAIKey = key
         }.store(in: &cancellables)
+    }
+    
+    @WorkspaceActor
+    private func registerPlugins() {
+        workspacePool.registerPlugin {
+            SuggestionServiceWorkspacePlugin(workspace: $0) { SuggestionService.service() }
+        }
+        workspacePool.registerPlugin {
+            // contains nested GitHubCopilotBaseService which runs the LSP on constructor call
+            GitHubCopilotWorkspacePlugin(workspace: $0)
+        }
+        workspacePool.registerPlugin {
+            BuiltinExtensionWorkspacePlugin(workspace: $0)
+        }
+    }
+    
+    @WorkspaceActor
+    private func unregisterPlugins() {
+        workspacePool.unregisterPlugin(SuggestionServiceWorkspacePlugin.self)
+        workspacePool.unregisterPlugin(GitHubCopilotWorkspacePlugin.self)
+        workspacePool.unregisterPlugin(BuiltinExtensionWorkspacePlugin.self)
     }
     
     func getCodeSuggestions(at benchmarkDirectory: BenchmarkDirectory) async throws {
@@ -148,11 +160,14 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
     func runTask(at index: Int, in benchmarkDirectory: BenchmarkDirectory) async {
         let taskPath = getTaskFolders(in: benchmarkDirectory.url)[index]
         await updateTaskStatus(in: benchmarkDirectory, state: .running, at: index)
-        if case .githubCopilot = selectedGenAIModelSubject.value,
-           let suggestion = await getCodeSuggestionFromService(at: taskPath, from: benchmarkDirectory.url) {
-            await applyCodeSuggestion(suggestion: suggestion.suggestion, at: suggestion.fileURL)
-            await storeContentInOutputDirectory(suggestion, for: index+1, in: benchmarkDirectory)
-            await updateTaskStatus(in: benchmarkDirectory, state: .success, at: index)
+        if case .githubCopilot = selectedGenAIModelSubject.value {
+            await registerPlugins()
+            if let suggestion = await getCodeSuggestionFromService(at: taskPath, from: benchmarkDirectory.url) {
+                await applyCodeSuggestion(suggestion: suggestion.suggestion, at: suggestion.fileURL)
+                await storeContentInOutputDirectory(suggestion, for: index+1, in: benchmarkDirectory)
+                await updateTaskStatus(in: benchmarkDirectory, state: .success, at: index)
+            }
+            await unregisterPlugins()
         } else if let openAIKey = openAIKey,
            case let .openAI(model) = selectedGenAIModelSubject.value,
            let suggestion = await getCodeSuggestionFromOpenAI(
