@@ -5,7 +5,7 @@ import WorkspaceSuggestionService
 
 extension Workspace {
     @WorkspaceActor
-    func cleanUp(availableTabs: Set<String>) {
+    public func cleanUp(availableTabs: Set<String>) {
         for (fileURL, _) in filespaces {
             if isFilespaceExpired(fileURL: fileURL, availableTabs: availableTabs) {
                 openedFileRecoverableStorage.closeFile(fileURL: fileURL)
@@ -14,7 +14,7 @@ extension Workspace {
         }
     }
 
-    func isFilespaceExpired(fileURL: URL, availableTabs: Set<String>) -> Bool {
+    public func isFilespaceExpired(fileURL: URL, availableTabs: Set<String>) -> Bool {
         let filename = fileURL.lastPathComponent
         if availableTabs.contains(filename) { return false }
         guard let filespace = filespaces[fileURL] else { return true }

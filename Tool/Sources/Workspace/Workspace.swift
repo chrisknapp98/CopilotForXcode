@@ -46,6 +46,7 @@ open class WorkspacePlugin {
     open func didOpenFilespace(_: Filespace) {}
     open func didSaveFilespace(_: Filespace) {}
     open func didUpdateFilespace(_: Filespace, content: String) {}
+    open func didUpdateFilespace(_: Filespace, content: String, version: Int) {}
     open func didCloseFilespace(_: URL) {}
 }
 
@@ -178,18 +179,18 @@ public final class Workspace {
     }
 
     @WorkspaceActor
-    public func didUpdateFilespace(fileURL: URL, content: String) {
+    public func didUpdateFilespace(fileURL: URL, content: String, version: Int = 0) {
         refreshUpdateTime()
         guard let filespace = filespaces[fileURL] else { return }
         filespace.bumpVersion()
         filespace.refreshUpdateTime()
         for plugin in plugins.values {
-            plugin.didUpdateFilespace(filespace, content: content)
+            plugin.didUpdateFilespace(filespace, content: content, version: version)
         }
     }
 
     @WorkspaceActor
-    func didOpenFilespace(_ filespace: Filespace) {
+    public func didOpenFilespace(_ filespace: Filespace) {
         refreshUpdateTime()
         openedFileRecoverableStorage.openFile(fileURL: filespace.fileURL)
         for plugin in plugins.values {
@@ -198,14 +199,14 @@ public final class Workspace {
     }
 
     @WorkspaceActor
-    func didCloseFilespace(_ fileURL: URL) {
+    public func didCloseFilespace(_ fileURL: URL) {
         for plugin in self.plugins.values {
             plugin.didCloseFilespace(fileURL)
         }
     }
 
     @WorkspaceActor
-    func didSaveFilespace(_ filespace: Filespace) {
+    public func didSaveFilespace(_ filespace: Filespace) {
         refreshUpdateTime()
         filespace.refreshUpdateTime()
         for plugin in plugins.values {

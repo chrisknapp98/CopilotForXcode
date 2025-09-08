@@ -21,5 +21,13 @@ public protocol BuiltinExtension: CopilotForXcodeCapability {
     /// It's usually called when the app is about to quit,
     /// you should clean up all the resources here.
     func terminate()
+    
+    /// To manually set the document version to 1 in case service is not connected to editor
+    func workspace(
+        _ workspace: WorkspaceInfo,
+        didUpdateDocumentAt documentURL: URL,
+        content: String?,
+        version: Int
+    )
 }
 
