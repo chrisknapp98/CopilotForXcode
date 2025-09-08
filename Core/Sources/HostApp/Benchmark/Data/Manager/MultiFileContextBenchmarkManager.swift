@@ -93,10 +93,11 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         let entrypoint = metadata.mapToEntrypoint(prefixing: benchmarkDirectory.path)
         let content: String = (try? String(contentsOf: entrypoint.fileURL, encoding: .utf8)) ?? ""
         
-        let relevantSymbols: [SymbolContent] = await retrieveRelevantSymbolsForFileContent(
+        let relevantSymbolsSummary: RelevantSymbolsSummary? = await retrieveRelevantSymbolsForFileContent(
             file: FileContent(fileURL: entrypoint.fileURL.path, content: content),
             workspace: workspace
         )
+        let relevantSymbols = relevantSymbolsSummary?.symbolsAtLevel.flatMap { $0 } ?? []
         let suggestionRequest = SuggestionProvider.SuggestionRequest(
             fileURL: entrypoint.fileURL,
             relativePath: entrypoint.fileURL.path.replacingOccurrences(of: benchmarkDirectory.path, with: ""),
@@ -122,7 +123,8 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
                 suggestion: firstSuggestion,
                 fileURL: entrypoint.fileURL,
                 relevantSymbolsFromRequest: relevantSymbols,
-                model: selectedGenAIModelSubject.value
+                model: selectedGenAIModelSubject.value,
+                relevantFileScanningDurationInSeconds: relevantSymbolsSummary?.durationInSeconds
             )
         } catch {
             return nil
@@ -196,10 +198,11 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         let entrypoint = metadata.mapToEntrypoint(prefixing: benchmarkDirectory.path)
         let content: String = (try? String(contentsOf: entrypoint.fileURL, encoding: .utf8)) ?? ""
         
-        let relevantSymbols: [SymbolContent] = await retrieveRelevantSymbolsForFileContent(
+        let relevantSymbolsSummary: RelevantSymbolsSummary? = await retrieveRelevantSymbolsForFileContent(
             file: FileContent(fileURL: entrypoint.fileURL.path, content: content),
             workspace: workspace
         )
+        let relevantSymbols = relevantSymbolsSummary?.symbolsAtLevel.flatMap { $0 } ?? []
         let limitedRelevantSymbols = Array(relevantSymbols.prefix(10))
         
         let suggestionRequest = SuggestionRequest(
@@ -227,7 +230,8 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
                 ),
                 fileURL: entrypoint.fileURL,
                 relevantSymbolsFromRequest: relevantSymbols,
-                model: selectedGenAIModelSubject.value
+                model: selectedGenAIModelSubject.value,
+                relevantFileScanningDurationInSeconds: relevantSymbolsSummary?.durationInSeconds
             )
         } catch {
             print("CK \(error)")
@@ -235,16 +239,24 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         }
     }
     
-    private func retrieveRelevantSymbolsForFileContent(file: FileContent, workspace: Workspace) async -> [SymbolContent] {
+    private func retrieveRelevantSymbolsForFileContent(file: FileContent, workspace: Workspace) async -> RelevantSymbolsSummary? {
         let multiFileContextManager = MultiFileContextManager(
             workspaceProvider: ManualWorkspaceProvider(workspace: workspace),
             parser: SwiftProgrammingLanguageSyntaxParser()
         )
         if isMultiFileEnabledSubject.value {
+            let start = Date()
             let symbols = await multiFileContextManager.retrieveRelevantSymbolsForFileContent(file: file, ignoreWithinPaths: ["/Benchmark/"])
-            return Array(symbols.values)
+            let end = Date()
+            let timeTakenInSeconds = end.timeIntervalSince(start)
+            return RelevantSymbolsSummary(
+                symbolsAtLevel: [
+                    Array(symbols.values)
+                ],
+                durationInSeconds: timeTakenInSeconds
+            )
         } else {
-            return []
+            return nil
         }
     }
     
@@ -534,7 +546,8 @@ extension SuggestionResponse {
             ),
             createdAt: timestamp,
             relevantSymbols: relevantSymbolsFromRequest.map { $0.toStoredDTO() },
-            model: model.id
+            model: model.id,
+            relevantFileScanningDurationInSeconds: relevantFileScanningDurationInSeconds
         )
     }
 }
