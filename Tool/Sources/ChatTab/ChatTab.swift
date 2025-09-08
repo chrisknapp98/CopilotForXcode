@@ -108,7 +108,6 @@ open class BaseChatTab {
     private var didStart = false
     private let storeObserver = NSObject()
 
-    @MainActor
     public init(store: StoreOf<ChatTabItem>) {
         chatTabStore = store
         
@@ -233,7 +232,7 @@ public class EmptyChatTab: ChatTab {
     struct Builder: ChatTabBuilder {
         let title: String
         func build(store: StoreOf<ChatTabItem>) async -> (any ChatTab)? {
-            await EmptyChatTab(store: store)
+            EmptyChatTab(store: store)
         }
     }
 
@@ -275,7 +274,6 @@ public class EmptyChatTab: ChatTab {
         return Builder(title: "Empty")
     }
 
-    @MainActor
     public convenience init(id: String) {
         self.init(store: .init(
             initialState: .init(id: id, title: "Empty-\(id)", workspacePath: "", username: ""),

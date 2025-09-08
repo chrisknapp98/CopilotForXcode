@@ -730,7 +730,7 @@ public final class GitHubCopilotService:
                     textDocument: .init(
                         uri: uri,
                         languageId: languageId.rawValue,
-                        version: 1,
+                        version: 0,
                         text: content
                     )
                 )

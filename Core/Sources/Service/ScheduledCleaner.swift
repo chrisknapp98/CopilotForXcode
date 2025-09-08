@@ -10,9 +10,9 @@ import XcodeInspector
 public final class ScheduledCleaner {
     weak var service: Service?
 
-    public init() {}
+    init() {}
 
-    public func start() {
+    func start() {
         Task { @ServiceActor in
             while !Task.isCancelled {
                 try await Task.sleep(nanoseconds: 10 * 60 * 1_000_000_000)
@@ -31,7 +31,7 @@ public final class ScheduledCleaner {
     }
 
     @ServiceActor
-    public func cleanUp() async {
+    func cleanUp() async {
         guard let service else { return }
 
         let workspaceInfos = XcodeInspector.shared.xcodes.reduce(

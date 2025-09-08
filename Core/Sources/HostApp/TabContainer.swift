@@ -14,9 +14,6 @@ public struct TabContainer: View {
     @ObservedObject var toastController: ToastController
     @State private var tabBarItems = [TabBarItem]()
     @Binding var tag: Int
-    /// currently needs to be a Singleton as the containing code appears to have a bug, what might also
-    /// be the reason why `hostAppStore` is declared on script level
-    private let benchmarkModule: BenchmarkModuleType = BenchmarkModule.shared
 
     public init() {
         toastController = ToastControllerDependencyKey.liveValue
@@ -58,11 +55,6 @@ public struct TabContainer: View {
                         tag: 2,
                         title: "MCP",
                         image: "wrench.and.screwdriver.fill"
-                    )
-                    BenchmarkView(module: benchmarkModule).tabBarItem(
-                        tag: 3,
-                        title: "Benchmark",
-                        image: "testtube.2"
                     )
                 }
                 .environment(\.tabBarTabTag, tag)

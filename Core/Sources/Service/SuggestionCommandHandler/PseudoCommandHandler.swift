@@ -14,19 +14,11 @@ import AXHelper
 /// It's used to run some commands without really triggering the menu bar item.
 ///
 /// For example, we can use it to generate real-time suggestions without Apple Scripts.
-public struct PseudoCommandHandler {
+struct PseudoCommandHandler {
     static var lastTimeCommandFailedToTriggerWithAccessibilityAPI = Date(timeIntervalSince1970: 0)
     static var lastBundleNotFoundTime = Date(timeIntervalSince1970: 0)
     static var lastBundleDisabledTime = Date(timeIntervalSince1970: 0)
     private var toast: ToastController { ToastControllerDependencyKey.liveValue }
-    
-    public init() { }
-    
-    private func workspace(for filespace: Filespace) async -> Workspace? {
-        let workspacePool: WorkspacePool = await Service.shared.workspacePool
-        let tuple: (workspace: Workspace, _: Filespace)? = try? await workspacePool.fetchOrCreateWorkspaceAndFilespace(fileURL: filespace.fileURL)
-        return tuple?.workspace
-    }
 
     func presentPreviousSuggestion() async {
         let handler = WindowBaseCommandHandler()
@@ -59,16 +51,15 @@ public struct PseudoCommandHandler {
     }
 
     @WorkspaceActor
-    public func generateRealtimeSuggestions(sourceEditor: SourceEditor?, entrypoint: EntryPoint? = nil) async {
-        // Copilot Suggestions
-        guard let filespace = await getFilespace(for: entrypoint?.fileURL),
+    func generateRealtimeSuggestions(sourceEditor: SourceEditor?) async {
+        guard let filespace = await getFilespace(),
               let (workspace, _) = try? await Service.shared.workspacePool
             .fetchOrCreateWorkspaceAndFilespace(fileURL: filespace.fileURL) else { return }
 
         if Task.isCancelled { return }
 
         // Can't use handler if content is not available.
-        guard let editor = await getEditorContent(sourceEditor: sourceEditor, entrypoint: entrypoint)
+        guard let editor = await getEditorContent(sourceEditor: sourceEditor)
         else { return }
 
         let fileURL = filespace.fileURL
@@ -408,15 +399,9 @@ extension PseudoCommandHandler {
     }
 
     @WorkspaceActor
-    func getFilespace(for file: URL? = nil) async -> Filespace? {
+    func getFilespace() async -> Filespace? {
         guard
-            let fileURL = await {
-                if let file {
-                    return file
-                } else {
-                    return await getFileURL()
-                }
-            }(),
+            let fileURL = await getFileURL(),
             let (_, filespace) = try? await Service.shared.workspacePool
                 .fetchOrCreateWorkspaceAndFilespace(fileURL: fileURL)
         else { return nil }
@@ -424,17 +409,15 @@ extension PseudoCommandHandler {
     }
 
     @WorkspaceActor
-    public func getEditorContent(sourceEditor: SourceEditor?, entrypoint: EntryPoint? = nil) async -> EditorContent? {
-        guard let filespace = await getFilespace(for: entrypoint?.fileURL),
+    func getEditorContent(sourceEditor: SourceEditor?) async -> EditorContent? {
+        guard let filespace = await getFilespace(),
               let sourceEditor = await {
                   if let sourceEditor { sourceEditor }
                   else { await XcodeInspector.shared.safe.focusedEditor }
               }()
         else { return nil }
-        print("CK filespace \(filespace)")
-        print("CK sourceEditor \(sourceEditor )")
         if Task.isCancelled { return nil }
-        var content = sourceEditor.getContent()
+        let content = sourceEditor.getContent()
         let uti = filespace.codeMetadata.uti ?? ""
         let tabSize = filespace.codeMetadata.tabSize ?? 4
         let indentSize = filespace.codeMetadata.indentSize ?? 4
@@ -455,12 +438,3 @@ extension PseudoCommandHandler {
     }
 }
 
-public struct EntryPoint {
-    public let cursor: CursorPosition
-    public let fileURL: URL
-    
-    public init(cursor: CursorPosition, fileURL: URL) {
-        self.cursor = cursor
-        self.fileURL = fileURL
-    }
-}

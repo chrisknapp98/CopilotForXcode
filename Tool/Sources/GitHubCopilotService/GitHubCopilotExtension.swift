@@ -129,44 +129,6 @@ public final class GitHubCopilotExtension: BuiltinExtension {
             }
         }
     }
-    
-    public func workspace(
-        _ workspace: WorkspaceInfo,
-        didUpdateDocumentAt documentURL: URL,
-        content: String?,
-        version: Int
-    ) {
-        guard isLanguageServerInUse else { return }
-        // check if file size is larger than 15MB, if so, return immediately
-        if let attrs = try? FileManager.default
-            .attributesOfItem(atPath: documentURL.path),
-           let fileSize = attrs[FileAttributeKey.size] as? UInt64,
-           fileSize > 15 * 1024 * 1024
-        { return }
-        
-        Task {
-            guard let content else { return }
-            guard let service = await serviceLocator.getService(from: workspace) else { return }
-            do {
-                try await service.notifyChangeTextDocument(
-                    fileURL: documentURL,
-                    content: content,
-                    version: version
-                )
-            } catch let error as ServerError {
-                switch error {
-                case .serverError(-32602, _, _): // parameter incorrect
-                    Logger.gitHubCopilot.error(error.localizedDescription)
-                    // Reopen document if it's not found in the language server
-                    self.workspace(workspace, didOpenDocumentAt: documentURL)
-                default:
-                    Logger.gitHubCopilot.info(error.localizedDescription)
-                }
-            } catch {
-                Logger.gitHubCopilot.info(error.localizedDescription)
-            }
-        }
-    }
 
     public func extensionUsageDidChange(_ usage: ExtensionUsage) {
         extensionUsage = usage
