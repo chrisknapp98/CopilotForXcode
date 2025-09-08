@@ -17,7 +17,7 @@ These extensions are research prototypes and not intended for merging upstream. 
 ### Related Repository
 
 This project is used in combination with another fork created for the thesis:  
-- [Modern Clean Architecture](https://github.com/chrisknapp98/ModernCleanArchitecture) – extended with a `Benchmark` module containing 15 tasks for reproducible evaluation.  
+- [Modern Clean ArchitectureSwiftUI](https://github.com/chrisknapp98/ModernCleanArchitectureSwiftUI) – extended with a `Benchmark` module containing 15 tasks for reproducible evaluation.  
 
 ### Default Branch
 
