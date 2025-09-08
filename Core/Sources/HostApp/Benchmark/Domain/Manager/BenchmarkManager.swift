@@ -10,4 +10,12 @@ protocol BenchmarkManager {
     func changeGenAIModel(to newModel: GenAILanguageModel)
     @MainActor
     func updateMultiFileContextState(_ newValue: Bool)
+    
+    var contextLevelLimit: AnyPublisher<ContextLevelLimit, Never> { get }
+    @MainActor
+    func saveContextLevelLimit(_ limit: ContextLevelLimit)
+    
+    var contextFileAmountLimit: AnyPublisher<Int?, Never> { get }
+    @MainActor
+    func saveContextFileAmountLimit(_ limit: Int?)
 }

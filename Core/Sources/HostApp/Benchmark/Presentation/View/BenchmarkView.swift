@@ -28,6 +28,28 @@ struct BenchmarkView: View {
                         ConfigurationButtonView(module: module)
                     }
                     .padding(.vertical)
+                    
+                    HStack(spacing: 20) {
+                        Spacer()
+                        Picker("Context Level Limit: ", selection: $viewModel.contextLevelLimit) {
+                            ForEach(ContextLevelLimit.allCases, id: \.self) { limit in
+                                Text(limit.name).tag(limit)
+                            }
+                        }
+                        .fixedSize(horizontal: true, vertical: false)
+                        
+                        Text("Context File Amount Limit:")
+                        let numberFormatter: NumberFormatter = {
+                            let f = NumberFormatter()
+                            f.numberStyle = .none
+                            return f
+                        }()
+                        TextField("Optional", value: $viewModel.contextFileAmountLimit, formatter: numberFormatter)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .frame(width: 100)
+                    }
+                    .padding(.bottom)
+                    
                     ForEach(viewModel.benchmarkDirectories, id: \.self) { directory in
                         BenchmarkDirectoryEntryView(
                             directory: directory,

@@ -29,6 +29,17 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
     var selectedGenAIModel: AnyPublisher<GenAILanguageModel, Never> {
         selectedGenAIModelSubject.eraseToAnyPublisher()
     }
+    
+    private let contextLevelLimitSubject = CurrentValueSubject<ContextLevelLimit, Never>(.firstLevel)
+    var contextLevelLimit: AnyPublisher<ContextLevelLimit, Never> {
+        contextLevelLimitSubject.eraseToAnyPublisher()
+    }
+    
+    private var contextFileAmountLimitSubject = CurrentValueSubject<Int?, Never>(nil)
+    var contextFileAmountLimit: AnyPublisher<Int?, Never> {
+        contextFileAmountLimitSubject.eraseToAnyPublisher()
+    }
+    
     private var cancellables = Set<AnyCancellable>()
     
     init(benchmarkSettingsRepository: BenchmarkSettingsRepository) {
@@ -239,25 +250,23 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         }
     }
     
-    private func retrieveRelevantSymbolsForFileContent(file: FileContent, workspace: Workspace) async -> RelevantSymbolsSummary? {
-        let multiFileContextManager = MultiFileContextManager(
+    private func retrieveRelevantSymbolsForFileContent(
+        file: FileContent,
+        workspace: Workspace
+    ) async -> RelevantSymbolsSummary? {
+        guard isMultiFileEnabledSubject.value else { return nil }
+
+        let manager = MultiFileContextManager(
             workspaceProvider: ManualWorkspaceProvider(workspace: workspace),
             parser: SwiftProgrammingLanguageSyntaxParser()
         )
-        if isMultiFileEnabledSubject.value {
-            let start = Date()
-            let symbols = await multiFileContextManager.retrieveRelevantSymbolsForFileContent(file: file, ignoreWithinPaths: ["/Benchmark/"])
-            let end = Date()
-            let timeTakenInSeconds = end.timeIntervalSince(start)
-            return RelevantSymbolsSummary(
-                symbolsAtLevel: [
-                    Array(symbols.values)
-                ],
-                durationInSeconds: timeTakenInSeconds
-            )
-        } else {
-            return nil
-        }
+
+        return await manager.expandRelevantSymbols(
+            from: file,
+            ignoreWithinPaths: ["/Benchmark/"],
+            maxDepth: contextLevelLimitSubject.value.indexLimit,   // e.g. First=0, Second=1, …, nil=no limit
+            maxFiles: contextFileAmountLimitSubject.value             // Int?, nil=no cap
+        )
     }
     
     private func applyCodeSuggestion(suggestion: SuggestionBasic.CodeSuggestion, at fileURL: URL) async {
@@ -469,6 +478,16 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         currentStatesInDirectory[index] = state
         currentStates[directory] = currentStatesInDirectory
         taskStatesSubject.send(currentStates)
+    }
+    
+    @MainActor
+    func saveContextLevelLimit(_ limit: ContextLevelLimit) {
+        contextLevelLimitSubject.send(limit)
+    }
+    
+    @MainActor
+    func saveContextFileAmountLimit(_ limit: Int?) {
+        contextFileAmountLimitSubject.send(limit)
     }
 }
 

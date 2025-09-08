@@ -62,6 +62,87 @@ public class MultiFileContextManager {
         return result
     }
     
+    private func readFile(_ urlString: String) -> FileContent? {
+        guard let url = URL(string: urlString) else { return nil }
+        guard let content = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        return FileContent(fileURL: urlString, content: content)
+    }
+
+    public func expandRelevantSymbols(
+        from root: FileContent,
+        ignoreWithinPaths: [String] = [],
+        maxDepth: Int? = nil,
+        maxFiles: Int? = nil
+    ) async -> RelevantSymbolsSummary {
+        @inline(__always)
+        func isIgnored(_ url: String) -> Bool {
+            ignoreWithinPaths.contains { url.contains($0) }
+        }
+
+        let start = Date()
+
+        let level0 = await retrieveRelevantSymbolsForFileContent(file: root, ignoreWithinPaths: ignoreWithinPaths)
+        var level0Unique: [SymbolContent] = []
+        var includedFiles = Set<String>()
+        for s in level0.values {
+            if includedFiles.insert(s.fileURL).inserted {
+                level0Unique.append(s)
+            }
+        }
+        var levels: [[SymbolContent]] = [level0Unique]
+
+        var visited = Set<String>([root.fileURL])
+        var depth = 0
+        var remainingFiles = maxFiles
+
+        while maxDepth == nil || depth < maxDepth! {
+            let prev = levels.last ?? []
+            var nextURLs = Set(prev.map(\.fileURL))
+            nextURLs.subtract(visited)
+            nextURLs = nextURLs.filter { !isIgnored($0) }
+
+            if nextURLs.isEmpty { break }
+
+            if let remaining = remainingFiles, nextURLs.count > remaining {
+                nextURLs = Set(nextURLs.prefix(remaining))
+            }
+
+            var rawNextLevel: [SymbolContent] = []
+            for url in nextURLs {
+                visited.insert(url)
+                guard let fc = readFile(url) else { continue }
+                let dict = await retrieveRelevantSymbolsForFileContent(file: fc, ignoreWithinPaths: ignoreWithinPaths)
+                rawNextLevel.append(contentsOf: dict.values)
+            }
+
+            var nextLevel: [SymbolContent] = []
+            var seenThisLevel = Set<String>()
+            for s in rawNextLevel {
+                guard !includedFiles.contains(s.fileURL) else { continue }
+                if seenThisLevel.insert(s.fileURL).inserted {
+                    nextLevel.append(s)
+                }
+            }
+
+            if nextLevel.isEmpty { break }
+
+            includedFiles.formUnion(nextLevel.map(\.fileURL))
+
+            levels.append(nextLevel)
+            depth += 1
+
+            if remainingFiles != nil {
+                remainingFiles! -= nextURLs.count
+                if remainingFiles! <= 0 { break }
+            }
+        }
+
+        return RelevantSymbolsSummary(
+            symbolsAtLevel: levels,
+            durationInSeconds: Date().timeIntervalSince(start)
+        )
+    }
+    
     public func retrieveRelevantSymbolsForFileContent(
         file: FileContent,
         ignoreWithinPaths: [String] = []
@@ -171,7 +252,7 @@ extension String {
             let before = (range.lowerBound == startIndex) ? nil : self[index(before: range.lowerBound)]
             let after  = (range.upperBound == endIndex)   ? nil : self[range.upperBound]
             
-            let boundaryBefore = before.map { !isIdentChar($0) } ?? true
+            let boundaryBefore = before.map { !isIdentChar($0) && $0 != "." } ?? true
             let boundaryAfter  = after.map  { !isIdentChar($0) } ?? true
             
             if boundaryBefore && boundaryAfter {
