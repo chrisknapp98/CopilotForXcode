@@ -1,6 +1,6 @@
 import Foundation
 
-struct StoredSuggestionDTO: Codable {
+struct StoredSuggestionDTO: Encodable {
     let fileURL: String
     let id: String
     let suggestionText: String
@@ -8,6 +8,9 @@ struct StoredSuggestionDTO: Codable {
     let range: CursorRangeDTO
     let createdAt: String
     let relevantSymbols: [RelevantSymbolsDTO]
+    var relevantSymbolCount: Int {
+        relevantSymbols.count
+    }
     let model: String
     let relevantFileScanningDurationInSeconds: Double?
     
@@ -30,6 +33,12 @@ struct StoredSuggestionDTO: Codable {
         let kind: String
     }
     
+    enum CodingKeys: String, CodingKey {
+        case fileURL, id, suggestionText, position, range, createdAt, relevantSymbols, model
+        case relevantFileScanningDurationInSeconds
+        case relevantSymbolCount // write, but ignore on decoding
+    }
+    
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(fileURL, forKey: .fileURL)
@@ -39,6 +48,7 @@ struct StoredSuggestionDTO: Codable {
         try container.encode(range, forKey: .range)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(relevantSymbols, forKey: .relevantSymbols)
+        try container.encode(relevantSymbolCount, forKey: .relevantSymbolCount)
         try container.encode(model, forKey: .model)
 
         if let value = relevantFileScanningDurationInSeconds {
