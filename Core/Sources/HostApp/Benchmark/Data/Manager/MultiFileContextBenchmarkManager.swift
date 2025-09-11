@@ -29,6 +29,17 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
     var selectedGenAIModel: AnyPublisher<GenAILanguageModel, Never> {
         selectedGenAIModelSubject.eraseToAnyPublisher()
     }
+    
+    private let contextLevelLimitSubject = CurrentValueSubject<ContextLevelLimit, Never>(.firstLevel)
+    var contextLevelLimit: AnyPublisher<ContextLevelLimit, Never> {
+        contextLevelLimitSubject.eraseToAnyPublisher()
+    }
+    
+    private var contextFileAmountLimitSubject = CurrentValueSubject<Int?, Never>(nil)
+    var contextFileAmountLimit: AnyPublisher<Int?, Never> {
+        contextFileAmountLimitSubject.eraseToAnyPublisher()
+    }
+    
     private var cancellables = Set<AnyCancellable>()
     
     init(benchmarkSettingsRepository: BenchmarkSettingsRepository) {
@@ -93,10 +104,11 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         let entrypoint = metadata.mapToEntrypoint(prefixing: benchmarkDirectory.path)
         let content: String = (try? String(contentsOf: entrypoint.fileURL, encoding: .utf8)) ?? ""
         
-        let relevantSymbols: [SymbolContent] = await retrieveRelevantSymbolsForFileContent(
+        let relevantSymbolsSummary: RelevantSymbolsSummary? = await retrieveRelevantSymbolsForFileContent(
             file: FileContent(fileURL: entrypoint.fileURL.path, content: content),
             workspace: workspace
         )
+        let relevantSymbols = relevantSymbolsSummary?.symbolsAtLevel.flatMap { $0 } ?? []
         let suggestionRequest = SuggestionProvider.SuggestionRequest(
             fileURL: entrypoint.fileURL,
             relativePath: entrypoint.fileURL.path.replacingOccurrences(of: benchmarkDirectory.path, with: ""),
@@ -122,7 +134,8 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
                 suggestion: firstSuggestion,
                 fileURL: entrypoint.fileURL,
                 relevantSymbolsFromRequest: relevantSymbols,
-                model: selectedGenAIModelSubject.value
+                model: selectedGenAIModelSubject.value,
+                relevantFileScanningDurationInSeconds: relevantSymbolsSummary?.durationInSeconds
             )
         } catch {
             return nil
@@ -196,10 +209,11 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         let entrypoint = metadata.mapToEntrypoint(prefixing: benchmarkDirectory.path)
         let content: String = (try? String(contentsOf: entrypoint.fileURL, encoding: .utf8)) ?? ""
         
-        let relevantSymbols: [SymbolContent] = await retrieveRelevantSymbolsForFileContent(
+        let relevantSymbolsSummary: RelevantSymbolsSummary? = await retrieveRelevantSymbolsForFileContent(
             file: FileContent(fileURL: entrypoint.fileURL.path, content: content),
             workspace: workspace
         )
+        let relevantSymbols = relevantSymbolsSummary?.symbolsAtLevel.flatMap { $0 } ?? []
         let limitedRelevantSymbols = Array(relevantSymbols.prefix(10))
         
         let suggestionRequest = SuggestionRequest(
@@ -227,7 +241,8 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
                 ),
                 fileURL: entrypoint.fileURL,
                 relevantSymbolsFromRequest: relevantSymbols,
-                model: selectedGenAIModelSubject.value
+                model: selectedGenAIModelSubject.value,
+                relevantFileScanningDurationInSeconds: relevantSymbolsSummary?.durationInSeconds
             )
         } catch {
             print("CK \(error)")
@@ -235,17 +250,23 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         }
     }
     
-    private func retrieveRelevantSymbolsForFileContent(file: FileContent, workspace: Workspace) async -> [SymbolContent] {
-        let multiFileContextManager = MultiFileContextManager(
+    private func retrieveRelevantSymbolsForFileContent(
+        file: FileContent,
+        workspace: Workspace
+    ) async -> RelevantSymbolsSummary? {
+        guard isMultiFileEnabledSubject.value else { return nil }
+
+        let manager = MultiFileContextManager(
             workspaceProvider: ManualWorkspaceProvider(workspace: workspace),
             parser: SwiftProgrammingLanguageSyntaxParser()
         )
-        if isMultiFileEnabledSubject.value {
-            let symbols = await multiFileContextManager.retrieveRelevantSymbolsForFileContent(file: file, ignoreWithinPaths: ["/Benchmark/"])
-            return Array(symbols.values)
-        } else {
-            return []
-        }
+
+        return await manager.expandRelevantSymbols(
+            from: file,
+            ignoreWithinPaths: ["/Benchmark/"],
+            maxDepth: contextLevelLimitSubject.value.indexLimit,   // e.g. First=0, Second=1, …, nil=no limit
+            maxFiles: contextFileAmountLimitSubject.value             // Int?, nil=no cap
+        )
     }
     
     private func applyCodeSuggestion(suggestion: SuggestionBasic.CodeSuggestion, at fileURL: URL) async {
@@ -458,6 +479,16 @@ class MultiFileContextBenchmarkManager: BenchmarkManager {
         currentStates[directory] = currentStatesInDirectory
         taskStatesSubject.send(currentStates)
     }
+    
+    @MainActor
+    func saveContextLevelLimit(_ limit: ContextLevelLimit) {
+        contextLevelLimitSubject.send(limit)
+    }
+    
+    @MainActor
+    func saveContextFileAmountLimit(_ limit: Int?) {
+        contextFileAmountLimitSubject.send(limit)
+    }
 }
 
 extension MetadataDTO {
@@ -534,7 +565,8 @@ extension SuggestionResponse {
             ),
             createdAt: timestamp,
             relevantSymbols: relevantSymbolsFromRequest.map { $0.toStoredDTO() },
-            model: model.id
+            model: model.id,
+            relevantFileScanningDurationInSeconds: relevantFileScanningDurationInSeconds
         )
     }
 }

@@ -7,4 +7,5 @@ struct SuggestionResponse {
     let fileURL: URL
     let relevantSymbolsFromRequest: [SymbolContent]
     let model: GenAILanguageModel
+    let relevantFileScanningDurationInSeconds: Double?
 }

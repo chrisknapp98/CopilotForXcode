@@ -10,43 +10,45 @@ class SwiftDeclarationCollector: SyntaxVisitor {
         self.sourceText = sourceText
         super.init(viewMode: .all)
     }
-    
-//    override func visit(_ node: ImportDeclSyntax) -> SyntaxVisitorContinueKind {
-//        recordSymbol(name: node.name.text, kind: "import", node: node)
-//        return .skipChildren
-//    }
 
     override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind {
+        guard !isPrivateOrFilePrivate(node.modifiers) else { return .skipChildren }
         recordSymbol(name: node.name.text, kind: ClassificationKeywords.classWord, node: node)
         return .skipChildren
     }
 
     override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
+        guard !isPrivateOrFilePrivate(node.modifiers) else { return .skipChildren }
         recordSymbol(name: node.name.text, kind: ClassificationKeywords.structWord, node: node)
         return .skipChildren
     }
 
     override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
+        guard !isPrivateOrFilePrivate(node.modifiers) else { return .skipChildren }
         recordSymbol(name: node.name.text, kind: ClassificationKeywords.enumWord, node: node)
         return .skipChildren
     }
 
     override func visit(_ node: ProtocolDeclSyntax) -> SyntaxVisitorContinueKind {
+        guard !isPrivateOrFilePrivate(node.modifiers) else { return .skipChildren }
         recordSymbol(name: node.name.text, kind: ClassificationKeywords.protocolWord, node: node)
         return .skipChildren
     }
     
     override func visit(_ node: ActorDeclSyntax) -> SyntaxVisitorContinueKind {
+        guard !isPrivateOrFilePrivate(node.modifiers) else { return .skipChildren }
         recordSymbol(name: node.name.text, kind: ClassificationKeywords.actorWord, node: node)
         return .skipChildren
     }
 
     override func visit(_ node: FunctionDeclSyntax) -> SyntaxVisitorContinueKind {
+        guard !isPrivateOrFilePrivate(node.modifiers) else { return .skipChildren }
         recordSymbol(name: node.name.text, kind: ClassificationKeywords.funcWord, node: node)
         return .skipChildren
     }
 
     override func visit(_ node: VariableDeclSyntax) -> SyntaxVisitorContinueKind {
+        guard !isPrivateOrFilePrivate(node.modifiers) else { return .skipChildren }
         guard let binding = node.bindings.first,
               let pattern = binding.pattern.as(IdentifierPatternSyntax.self),
               let keyword: ClassificationKeywords = ClassificationKeywords(rawValue: node.bindingSpecifier.text) else {
@@ -58,11 +60,14 @@ class SwiftDeclarationCollector: SyntaxVisitor {
 
     override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
         let name = node.extendedType.trimmedDescription
+        guard !isPrivateOrFilePrivate(node.modifiers) && name != "View" else { return .skipChildren }
+        
         recordSymbol(name: name, kind: ClassificationKeywords.extensionWord, node: node)
         return .skipChildren
     }
     
     override func visit(_ node: TypeAliasDeclSyntax) -> SyntaxVisitorContinueKind {
+        guard !isPrivateOrFilePrivate(node.modifiers) else { return .skipChildren }
         recordSymbol(name: node.name.text, kind: ClassificationKeywords.typealiasWord, node: node)
         return .skipChildren
     }
@@ -86,5 +91,13 @@ class SwiftDeclarationCollector: SyntaxVisitor {
             content: content
         )
         symbols.append(symbol)
+    }
+    
+    private func isPrivateOrFilePrivate(_ modifiers: DeclModifierListSyntax?) -> Bool {
+        guard let modifiers else { return false }
+        return modifiers.contains { modifier in
+            let text = modifier.name.text
+            return text == "private" || text == "fileprivate"
+        }
     }
 }

@@ -16,6 +16,18 @@ class BenchmarkViewModel: ObservableObject {
             Task { await benchmarkManager.changeGenAIModel(to: selectedLanguageModel) }
         }
     }
+    @Published var contextLevelLimit: ContextLevelLimit = .firstLevel {
+        didSet {
+            guard oldValue != contextLevelLimit else { return }
+            Task { await benchmarkManager.saveContextLevelLimit(contextLevelLimit) }
+        }
+    }
+    @Published var contextFileAmountLimit: Int? = nil {
+        didSet {
+            guard oldValue != contextFileAmountLimit else { return }
+            Task { await benchmarkManager.saveContextFileAmountLimit(contextFileAmountLimit) }
+        }
+    }
     
     private let benchmarkSettingsRepository: BenchmarkSettingsRepository
     private let benchmarkManager: BenchmarkManager
@@ -34,6 +46,12 @@ class BenchmarkViewModel: ObservableObject {
         benchmarkManager.taskStates.assign(to: \.taskStates, on: self).store(in: &cancellables)
         benchmarkManager.selectedGenAIModel
             .assign(to: \.selectedLanguageModel, on: self)
+            .store(in: &cancellables)
+        benchmarkManager.contextLevelLimit
+            .assign(to: \.contextLevelLimit, on: self)
+            .store(in: &cancellables)
+        benchmarkManager.contextFileAmountLimit
+            .assign(to: \.contextFileAmountLimit, on: self)
             .store(in: &cancellables)
     }
     
