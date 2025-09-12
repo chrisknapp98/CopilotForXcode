@@ -1,5 +1,36 @@
 # <img align="center" height="70" src="./Docs/AppIcon.png"/> GitHub Copilot for Xcode
 
+## Note on this Fork
+
+This repository is a **fork** of [github/CopilotForXcode](https://github.com/github/CopilotForXcode).  
+It has been extended as part of my Master’s Thesis at HTW Berlin:  
+*“Enhancing a Generative AI Tool for Improved Code Generation and Automated Application in an IDE”*.
+
+### Additions in this Fork
+
+- **Multi-file Inline Completions**: Extended support to allow Copilot suggestions across multiple files, not just the opened tabs.  
+- **Benchmark Tool**: Added functionality to test code completion quality across several large language models (GitHub Copilot, multiple GPT variants from OpenAI) to be used together with a specifically designed dataset.  
+- **Evaluation Dataset**: Inspired by [HumanEval](https://arxiv.org/abs/2107.03374), but adapted to reflect realistic multi-file development scenarios.  
+
+These extensions are research prototypes and not intended for merging upstream. They provide the basis for benchmarking and evaluating IDE integration with generative AI.  
+
+### Related Repository
+
+This project is used in combination with another fork created for the thesis:  
+- [Modern Clean ArchitectureSwiftUI](https://github.com/chrisknapp98/ModernCleanArchitectureSwiftUI) – extended with a `Benchmark` module containing 15 tasks for reproducible evaluation.  
+
+### Default Branch
+
+The default branch of this fork has been changed from `main` to `integration/multi-file-context-benchmark`.
+
+Reason:  
+This fork was extended with **SwiftSyntax** support and upgraded to **Swift 5.10**, while the upstream project is still on **Swift 5.9**.  
+To avoid constant “ping-pong” merge conflicts in `Package.swift` and related build files, this fork maintains its own stable branch.  
+ 
+If you want the extended research prototype features (multi-file completions, benchmarks, dataset), use this fork’s default branch.
+
+---
+
 [GitHub Copilot](https://github.com/features/copilot) is an AI pair programmer
 tool that helps you write code faster and smarter. Copilot for Xcode is an Xcode extension that provides inline coding suggestions as you type and a chat assistant to answer your coding questions.
 

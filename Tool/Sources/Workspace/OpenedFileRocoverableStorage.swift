@@ -31,9 +31,10 @@ public final class OpenedFileRecoverableStorage {
     }
 
     public var openedFiles: [URL] {
-        let dict = userDefault.dictionary(forKey: key) ?? [:]
-        let openedFiles = dict[projectRootURL.path] as? [String] ?? []
-        return openedFiles.map { URL(fileURLWithPath: $0) }
+//        let dict = userDefault.dictionary(forKey: key) ?? [:]
+//        let openedFiles = dict[projectRootURL.path] as? [String] ?? []
+//        return openedFiles.map { URL(fileURLWithPath: $0) }
+        []
     }
 }
 
